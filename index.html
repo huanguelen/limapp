@@ -132,9 +132,17 @@
       letter-spacing: .3px;
       color: var(--text-2);
       position: relative; z-index: 1;
-      white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .team-sub-track {
+      display: inline-block;
+      white-space: nowrap;
+      animation: ticker 9s linear infinite;
+    }
+    @keyframes ticker {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
     }
 
     /* DT Badge */
@@ -1468,7 +1476,7 @@
   </div>
   <div class="team-info">
     <div class="team-name">LIMA</div>
-    <div class="team-sub">Junior +35 · Estamos en la "A" · Temporada 2026</div>
+    <div class="team-sub"><span class="team-sub-track">Junior +35 · Estamos en la "A" · Temporada 2026 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Junior +35 · Estamos en la "A" · Temporada 2026 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
   </div>
   <div class="dt-badge">
     <button class="dt-btn" id="dtLoginBtn" onclick="UI.openPin()">🔒 DT</button>
