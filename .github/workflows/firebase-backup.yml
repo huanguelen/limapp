@@ -1,0 +1,59 @@
+name: Firebase Daily Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # Todos los días a las 3:00 AM UTC
+  workflow_dispatch:       # También permite ejecutarlo manualmente
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Firebase Tools
+        run: npm install -g firebase-tools
+
+      - name: Autenticar con Firebase
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > firebase-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=firebase-key.json
+
+      - name: Exportar base de datos
+        run: |
+          firebase database:get / \
+            --project limafc \
+            --json \
+            > backup.json
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: firebase-key.json
+
+      - name: Preparar nombre del archivo con fecha
+        run: |
+          echo "FECHA=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Clonar repo de backups
+        run: |
+          git clone https://x-access-token:${{ secrets.BACKUP_REPO_TOKEN }}@github.com/${{ secrets.BACKUP_REPO }}.git backup-repo
+
+      - name: Copiar backup al repo
+        run: |
+          mkdir -p backup-repo/backups
+          cp backup.json backup-repo/backups/lima-${{ env.FECHA }}.json
+
+      - name: Commit y push del backup
+        run: |
+          cd backup-repo
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "backup: Lima FC - ${{ env.FECHA }}"
+          git push
+
+      - name: Limpiar credenciales
+        if: always()
+        run: rm -f firebase-key.json
