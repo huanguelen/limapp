@@ -1,0 +1,20 @@
+﻿# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+*.suo
+*.user
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencias (si en algún momento usas npm)
+node_modules/
+
+# Variables de entorno (¡nunca subir claves!)
+.env
+.env.local
