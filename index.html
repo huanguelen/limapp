@@ -2817,12 +2817,15 @@ window.UI = window.App = {
         row.appendChild(nameEl);
         const icons = document.createElement("div");
         icons.className = "md-gol-icons";
+        const hasAnyUrl = sc.urls.some(u => u && extractYouTubeId(u));
         for (let i = 0; i < sc.goles; i++) {
-          const url = sc.urls[i] || "";
-          const btn = url ? document.createElement("a") : document.createElement("span");
-          if (url) { btn.href = url; btn.target = "_blank"; btn.rel = "noopener noreferrer"; }
-          btn.className = "md-gol-btn" + (url ? "" : " no-url");
+          const btn = document.createElement("span");
+          btn.className = "md-gol-btn" + (hasAnyUrl ? "" : " no-url");
           btn.textContent = "⚽";
+          if (hasAnyUrl) {
+            btn.style.cursor = "pointer";
+            btn.addEventListener("click", () => UI.showPlayerGoals(sc.name));
+          }
           icons.appendChild(btn);
         }
         row.appendChild(icons);
