@@ -505,48 +505,39 @@
     .modal-pos-badge.delantero    { background: rgba(255,90,90,.15);  color: var(--fwd); }
 
     /* ═══════════════════════════════════════════
-       PIN MODAL
+       LOGIN MODAL
     ═══════════════════════════════════════════ */
-    .pin-modal {
+    .login-modal {
       background: var(--surface);
       border: 1px solid var(--border-2);
       border-top: 2px solid var(--cyan);
-      width: min(272px, 92vw);
+      width: min(300px, 92vw);
       border-radius: 8px;
       padding: 24px 20px;
       box-shadow: 0 24px 80px rgba(0,0,0,.95);
       animation: scaleIn .22s ease;
     }
-    .pin-title { font-family: "Bebas Neue", sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--cyan); }
-    .pin-sub { font-size: 11px; color: var(--text-3); letter-spacing: 1px; margin-top: 4px; margin-bottom: 18px; }
-    .pin-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 8px; }
-    .pin-dot {
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      border: 2px solid var(--border-2);
-      background: transparent;
-      transition: all .15s;
+    .login-title { font-family: "Bebas Neue", sans-serif; font-size: 20px; letter-spacing: 3px; color: var(--cyan); text-align: center; }
+    .login-sub { font-size: 11px; color: var(--text-3); letter-spacing: 1px; margin-top: 4px; margin-bottom: 18px; text-align: center; }
+    .login-field {
+      width: 100%; box-sizing: border-box;
+      background: var(--surface-2); border: 1px solid var(--border-2);
+      color: var(--text); font-family: "Barlow Condensed", sans-serif; font-size: 14px;
+      padding: 12px 14px; border-radius: 8px; margin-bottom: 10px;
+      outline: none; transition: border-color .15s;
     }
-    .pin-dot.filled { background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); transform: scale(1.15); }
-    .pin-dot.error  { background: var(--loss); border-color: var(--loss); animation: shake .3s ease; }
-    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
-    .pin-error { color: var(--loss); font-size: 11px; letter-spacing: 1px; min-height: 16px; text-align: center; margin: 4px 0; }
-    .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-top: 14px; }
-    .pp-btn {
-      background: var(--surface-2);
-      border: 1px solid var(--border-2);
-      color: var(--text);
-      font-family: "Bebas Neue", sans-serif;
-      font-size: 22px;
-      padding: 14px 0;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all .1s;
-      min-height: 52px;
+    .login-field:focus { border-color: var(--cyan); }
+    .login-field::placeholder { color: var(--text-3); }
+    .login-error { color: var(--loss); font-size: 11px; letter-spacing: 1px; min-height: 16px; text-align: center; margin: 4px 0; }
+    .login-btn {
+      width: 100%; padding: 12px 0; margin-top: 6px;
+      background: rgba(46,48,146,.5); border: 1px solid rgba(0,174,239,.5); color: var(--cyan);
+      font-family: "Bebas Neue", sans-serif; font-size: 18px; letter-spacing: 2px;
+      border-radius: 8px; cursor: pointer; transition: all .15s;
     }
-    .pp-btn:active { background: var(--blue); border-color: var(--cyan); color: var(--cyan); transform: scale(.91); }
-    .pp-btn--clear { color: var(--loss); font-size: 17px; }
-    .pp-btn--ok { background: rgba(46,48,146,.5); border-color: rgba(0,174,239,.5); color: var(--cyan); }
+    .login-btn:hover { background: rgba(46,48,146,.7); border-color: var(--cyan); }
+    .login-btn:active { transform: scale(.96); }
+    .login-btn:disabled { opacity: .5; cursor: not-allowed; }
 
     /* ═══════════════════════════════════════════
        CARD MODAL (Player Photo)
@@ -1555,7 +1546,7 @@
     <div class="team-sub"><span class="team-sub-track">Junior +35 · Estamos en la "A" · Temporada 2026 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Junior +35 · Estamos en la "A" · Temporada 2026 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
   </div>
   <div class="dt-badge">
-    <button class="dt-btn" id="dtLoginBtn" onclick="UI.openPin()">🔒 DT</button>
+    <button class="dt-btn" id="dtLoginBtn" onclick="UI.openLogin()">🔒 DT</button>
     <div class="dt-indicator" id="dtIndicator">
       <div class="dt-indicator-dot"></div>
       <span class="dt-indicator-text">DT</span>
@@ -1649,32 +1640,15 @@
   </div>
 </div>
 
-<!-- ── PIN MODAL ── -->
-<div class="overlay" id="pinOverlay">
-  <div class="pin-modal">
-    <div class="pin-title">🔐 MODO DT</div>
-    <div class="pin-sub">Ingresá tu PIN de 4 dígitos</div>
-    <div class="pin-dots" id="pinDots">
-      <div class="pin-dot" id="pd0"></div>
-      <div class="pin-dot" id="pd1"></div>
-      <div class="pin-dot" id="pd2"></div>
-      <div class="pin-dot" id="pd3"></div>
-    </div>
-    <div class="pin-error" id="pinError"></div>
-    <div class="pin-pad">
-      <button class="pp-btn" onclick="UI.pinPad(1)">1</button>
-      <button class="pp-btn" onclick="UI.pinPad(2)">2</button>
-      <button class="pp-btn" onclick="UI.pinPad(3)">3</button>
-      <button class="pp-btn" onclick="UI.pinPad(4)">4</button>
-      <button class="pp-btn" onclick="UI.pinPad(5)">5</button>
-      <button class="pp-btn" onclick="UI.pinPad(6)">6</button>
-      <button class="pp-btn" onclick="UI.pinPad(7)">7</button>
-      <button class="pp-btn" onclick="UI.pinPad(8)">8</button>
-      <button class="pp-btn" onclick="UI.pinPad(9)">9</button>
-      <button class="pp-btn pp-btn--clear" onclick="UI.pinPad(-1)">✕</button>
-      <button class="pp-btn" onclick="UI.pinPad(0)">0</button>
-      <button class="pp-btn pp-btn--ok" onclick="UI.pinPad(-2)">✓</button>
-    </div>
+<!-- ── LOGIN MODAL ── -->
+<div class="overlay" id="loginOverlay">
+  <div class="login-modal">
+    <div class="login-title">🔐 MODO DT</div>
+    <div class="login-sub">Ingresá tus credenciales</div>
+    <input class="login-field" id="loginEmail" type="email" placeholder="Email" autocomplete="email">
+    <input class="login-field" id="loginPassword" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')UI.submitLogin()">
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginSubmitBtn" onclick="UI.submitLogin()">INGRESAR</button>
   </div>
 </div>
 
@@ -1896,7 +1870,6 @@ const auth        = getAuth(fbApp);
 const db          = getDatabase(fbApp);
 const analytics   = getAnalytics(fbApp);
 const stateRef    = ref(db, "lima/formacion");
-const configRef   = ref(db, "lima/config/pin_hash");
 const versionRef  = ref(db, "lima/config/app_version");
 const partidosRef = ref(db, "lima/partidos");
 const entrenamientosRef = ref(db, "lima/entrenamientos");
@@ -1959,7 +1932,6 @@ const STAT_DEFS = [
 // ─── APP STATE ───
 const State = {
   isDT:             false,
-  pinHash:          null,
   formation:        "4-4-2",
   assigned:         {},        // { slotIndex: playerName | null }
   allPartidos:      {},
@@ -1969,9 +1941,6 @@ const State = {
   modalMode:        "partido",  // "partido" | "entrenamiento"
   editingMatchId:   null,
   currentMatchStats:{},
-  pinBuffer:        "",
-  pinAttempts:      0,
-  pinLockedUntil:   0,
 };
 
 function assignedList() { return Object.values(State.assigned).filter(Boolean); }
@@ -2039,9 +2008,6 @@ onAuthStateChanged(auth, user => {
       }, 3000);
     }
   });
-
-  // Load PIN hash
-  onValue(configRef, snap => { if (snap.val()) State.pinHash = snap.val(); }, { onlyOnce: true });
 
   // Sync formation
   onValue(stateRef, snap => {
@@ -2333,11 +2299,6 @@ function toast(msg, type = "success") {
   if (navigator.vibrate) navigator.vibrate(30);
 }
 
-async function sha256(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
 // ─── LITE YOUTUBE EMBED HELPERS ───
 function extractYouTubeId(url) {
   if (!url || typeof url !== 'string') return null;
@@ -2376,74 +2337,40 @@ window.UI = window.App = {
   },
 
   // ── DT ──
-  async verifyPin() {
-    // Rate limiting: lockout after failed attempts
-    if (Date.now() < State.pinLockedUntil) {
-      const secs = Math.ceil((State.pinLockedUntil - Date.now()) / 1000);
-      document.getElementById("pinError").textContent = `Bloqueado. Esperá ${secs}s`;
-      State.pinBuffer = "";
-      this._updatePinDots();
-      return;
-    }
-    const hashed = await sha256(State.pinBuffer);
-    if (State.pinHash && hashed === State.pinHash) {
-      try { await signInWithEmailAndPassword(auth, 'daniel.huangue@gmail.com', 'lima2026'); } catch(e) { console.error("DT auth failed:", e); }
+  async submitLogin() {
+    const email = document.getElementById("loginEmail").value.trim();
+    const pass = document.getElementById("loginPassword").value;
+    const errEl = document.getElementById("loginError");
+    const btn = document.getElementById("loginSubmitBtn");
+    if (!email || !pass) { errEl.textContent = "Completá ambos campos"; return; }
+    btn.disabled = true;
+    errEl.textContent = "";
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
       State.isDT = true;
-      State.pinAttempts = 0;
       window.trackEvent("dt_login");
-      document.getElementById("pinOverlay").classList.remove("open");
+      document.getElementById("loginOverlay").classList.remove("open");
       document.getElementById("dtLoginBtn").style.display = "none";
       document.getElementById("dtIndicator").classList.add("show");
       Render.formationButtons();
       Render.pitch();
       if (State.currentTab === "stats") Render.stats();
       toast("Modo DT activado ✓");
-    } else {
-      State.pinAttempts++;
-      // Lockout: 5s after 3 fails, 15s after 5, 60s after 8+
-      if (State.pinAttempts >= 3) {
-        const delay = State.pinAttempts >= 8 ? 60000 : State.pinAttempts >= 5 ? 15000 : 5000;
-        State.pinLockedUntil = Date.now() + delay;
-      }
-      State.pinBuffer = "";
-      this._updatePinDots();
-      const err = document.getElementById("pinError");
-      err.textContent = State.pinAttempts >= 3
-        ? `PIN incorrecto (${State.pinAttempts} intentos). Bloqueado ${State.pinAttempts >= 8 ? "60" : State.pinAttempts >= 5 ? "15" : "5"}s`
-        : "PIN incorrecto";
+      document.getElementById("loginEmail").value = "";
+      document.getElementById("loginPassword").value = "";
+    } catch (e) {
+      errEl.textContent = "Credenciales incorrectas";
       if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
-      for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.add("error");
-      setTimeout(() => {
-        err.textContent = "";
-        for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.remove("error");
-      }, 2000);
+    } finally {
+      btn.disabled = false;
     }
   },
 
-  _updatePinDots() {
-    for (let i = 0; i < 4; i++)
-      document.getElementById("pd" + i).classList.toggle("filled", i < State.pinBuffer.length);
-  },
-
-  pinPad(digit) {
-    if (digit === -1) {
-      State.pinBuffer = ""; this._updatePinDots();
-      document.getElementById("pinError").textContent = "";
-    } else if (digit === -2) {
-      if (State.pinBuffer.length === 4) this.verifyPin();
-    } else {
-      if (State.pinBuffer.length >= 4) return;
-      State.pinBuffer += String(digit);
-      this._updatePinDots();
-      if (navigator.vibrate) navigator.vibrate(12);
-      if (State.pinBuffer.length === 4) setTimeout(() => this.verifyPin(), 80);
-    }
-  },
-
-  openPin() {
-    State.pinBuffer = ""; this._updatePinDots();
-    document.getElementById("pinError").textContent = "";
-    document.getElementById("pinOverlay").classList.add("open");
+  openLogin() {
+    document.getElementById("loginEmail").value = "";
+    document.getElementById("loginPassword").value = "";
+    document.getElementById("loginError").textContent = "";
+    document.getElementById("loginOverlay").classList.add("open");
   },
 
   async exitDT() {
@@ -3159,8 +3086,8 @@ document.getElementById("formationRow").addEventListener("click", e => {
 // Modal backdrop close
 document.getElementById("overlay").addEventListener("pointerup", e => { if (e.target.id === "overlay") UI.closeModal(); });
 document.getElementById("modalCloseBtn").addEventListener("pointerup", e => { e.preventDefault(); UI.closeModal(); });
-document.getElementById("pinOverlay").addEventListener("click", e => {
-  if (e.target.id === "pinOverlay") document.getElementById("pinOverlay").classList.remove("open");
+document.getElementById("loginOverlay").addEventListener("click", e => {
+  if (e.target.id === "loginOverlay") document.getElementById("loginOverlay").classList.remove("open");
 });
 // ── Card overlay: cierre robusto anti-ghost-tap ──
 (function() {
@@ -3220,7 +3147,7 @@ document.addEventListener("keydown", e => {
     ["playerDetailOverlay",   () => UI.closePlayerDetail()],
     ["matchDetailOverlay",    () => UI.closeMatchDetail()],
     ["matchModalOverlay",     () => UI.closeMatchForm()],
-    ["pinOverlay",            () => document.getElementById("pinOverlay").classList.remove("open")],
+    ["loginOverlay",          () => document.getElementById("loginOverlay").classList.remove("open")],
   ];
   for (const [id, fn] of map) {
     const el = document.getElementById(id);
@@ -3236,7 +3163,7 @@ document.getElementById("goalLinksOverlay").addEventListener("pointerup", e => {
   let sx = 0, sy = 0;
   document.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
   document.addEventListener("touchend", e => {
-    const anyOpen = document.querySelector(".overlay.open, .card-overlay.open, .player-detail-overlay.open, #matchModalOverlay.open, #pinOverlay.open, .match-detail-overlay.open");
+    const anyOpen = document.querySelector(".overlay.open, .card-overlay.open, .player-detail-overlay.open, #matchModalOverlay.open, #loginOverlay.open, .match-detail-overlay.open");
     if (anyOpen) return;
     const dx = e.changedTouches[0].clientX - sx;
     const dy = Math.abs(e.changedTouches[0].clientY - sy);
