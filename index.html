@@ -1968,9 +1968,15 @@ const State = {
   editingMatchId:   null,
   currentMatchStats:{},
   pinBuffer:        "",
+  pinAttempts:      0,
+  pinLockedUntil:   0,
 };
 
 function assignedList() { return Object.values(State.assigned).filter(Boolean); }
+
+// ─── SECURITY: HTML escape to prevent XSS from Firebase data ───
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 function autoAssign(f) {
   State.assigned = {};
@@ -2169,11 +2175,10 @@ const Render = {
       tag.className = "bench-tag bench-tag--" + p.pos;
       tag.innerHTML = `
         <div class="bench-avatar-wrap">
-          <img class="bench-avatar" src="/images/${p.name.toLowerCase()}.jpg"
-               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="${p.name}">
-          <div class="bench-avatar-fallback" style="display:none">${p.name.slice(0, 2)}</div>
+          <img class="bench-avatar" src="/images/${escAttr(p.name.toLowerCase())}.jpg" alt="${escAttr(p.name)}">
+          <div class="bench-avatar-fallback" style="display:none">${esc(p.name.slice(0, 2))}</div>
         </div>
-        <span class="bench-name">${p.name}</span>`;
+        <span class="bench-name">${esc(p.name)}</span>`;
       tag.addEventListener("click", () => UI.showCard(p.name));
       bench.appendChild(tag);
     });
@@ -2244,17 +2249,17 @@ const Render = {
           row.innerHTML = `
             <div class="match-row-header">
               <div>
-                <div class="match-rival"><span style="font-size:12px;opacity:.7">${ti[0]}</span> vs ${p.rival || "Rival"}</div>
+                <div class="match-rival"><span style="font-size:12px;opacity:.7">${ti[0]}</span> vs ${esc(p.rival || "Rival")}</div>
                 <div class="match-meta-chips">
-                  <span class="match-date">${fmtDate(p.fecha)}</span>
-                  <span class="chip ${ti[1]}">${ti[0]} ${p.tipo || "AMISTOSO"}</span>
-                  ${p.cancha ? `<span class="chip chip-cancha">🏟️ CANCHA ${p.cancha}</span>` : ""}
-                  ${p.camiseta ? `<span class="chip ${p.camiseta==="AZUL"?"chip-azul":"chip-blanca"}">${p.camiseta==="AZUL"?"🟦":"⬜"} ${p.camiseta}</span>` : ""}
+                  <span class="match-date">${esc(fmtDate(p.fecha))}</span>
+                  <span class="chip ${ti[1]}">${ti[0]} ${esc(p.tipo || "AMISTOSO")}</span>
+                  ${p.cancha ? `<span class="chip chip-cancha">🏟️ CANCHA ${esc(p.cancha)}</span>` : ""}
+                  ${p.camiseta ? `<span class="chip ${p.camiseta==="AZUL"?"chip-azul":"chip-blanca"}">${p.camiseta==="AZUL"?"🟦":"⬜"} ${esc(p.camiseta)}</span>` : ""}
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
                 <div class="match-result ${cls}">LIMA ${lima} — ${rival}</div>
-                ${State.isDT ? `<button class="match-edit-btn" data-pid="${pid}" title="Editar">✏️</button>` : ""}
+                ${State.isDT ? `<button class="match-edit-btn" data-pid="${escAttr(pid)}" title="Editar">✏️</button>` : ""}
               </div>
             </div>`;
           row.addEventListener("click", () => UI.openMatchDetail(pid, p));
@@ -2278,10 +2283,10 @@ const Render = {
         const row = document.createElement("div");
         row.className = "player-stat-row";
         row.innerHTML = `
-          <img class="player-stat-avatar" src="/images/${p.name.toLowerCase()}.jpg" onerror="this.style.display='none'">
+          <img class="player-stat-avatar" src="/images/${escAttr(p.name.toLowerCase())}.jpg">
           <div class="player-stat-info">
-            <div class="player-stat-name">${p.name}</div>
-            <div class="player-stat-pos">${POS_ABBR[p.pos] || p.pos} · ${t.partidos || 0} PARTIDOS</div>
+            <div class="player-stat-name">${esc(p.name)}</div>
+            <div class="player-stat-pos">${esc(POS_ABBR[p.pos] || p.pos)} · ${t.partidos || 0} PARTIDOS</div>
           </div>
           <div class="player-stat-badges">
             <span class="stat-badge ${(t.goles||0)===0?"zero":"highlight"}">⚽ ${t.goles||0}</span>
@@ -2362,9 +2367,18 @@ window.UI = window.App = {
 
   // ── DT ──
   async verifyPin() {
+    // Rate limiting: lockout after failed attempts
+    if (Date.now() < State.pinLockedUntil) {
+      const secs = Math.ceil((State.pinLockedUntil - Date.now()) / 1000);
+      document.getElementById("pinError").textContent = `Bloqueado. Esperá ${secs}s`;
+      State.pinBuffer = "";
+      this._updatePinDots();
+      return;
+    }
     const hashed = await sha256(State.pinBuffer);
     if (State.pinHash && hashed === State.pinHash) {
       State.isDT = true;
+      State.pinAttempts = 0;
       window.trackEvent("dt_login");
       document.getElementById("pinOverlay").classList.remove("open");
       document.getElementById("dtLoginBtn").style.display = "none";
@@ -2374,16 +2388,24 @@ window.UI = window.App = {
       if (State.currentTab === "stats") Render.stats();
       toast("Modo DT activado ✓");
     } else {
+      State.pinAttempts++;
+      // Lockout: 5s after 3 fails, 15s after 5, 60s after 8+
+      if (State.pinAttempts >= 3) {
+        const delay = State.pinAttempts >= 8 ? 60000 : State.pinAttempts >= 5 ? 15000 : 5000;
+        State.pinLockedUntil = Date.now() + delay;
+      }
       State.pinBuffer = "";
       this._updatePinDots();
       const err = document.getElementById("pinError");
-      err.textContent = "PIN incorrecto";
+      err.textContent = State.pinAttempts >= 3
+        ? `PIN incorrecto (${State.pinAttempts} intentos). Bloqueado ${State.pinAttempts >= 8 ? "60" : State.pinAttempts >= 5 ? "15" : "5"}s`
+        : "PIN incorrecto";
       if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
       for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.add("error");
       setTimeout(() => {
         err.textContent = "";
         for (let i = 0; i < 4; i++) document.getElementById("pd" + i).classList.remove("error");
-      }, 900);
+      }, 2000);
     }
   },
 
@@ -2468,11 +2490,11 @@ window.UI = window.App = {
         item.className = "modal-item" + (p.name === current ? " current" : "");
         item.dataset.name = p.name;
         item.innerHTML = `
-          <img class="modal-item-avatar" src="/images/${p.name.toLowerCase()}.jpg" onerror="this.src=''" alt="${p.name}">
+          <img class="modal-item-avatar" src="/images/${escAttr(p.name.toLowerCase())}.jpg" alt="${escAttr(p.name)}">
           <div class="modal-item-info">
-            <div class="modal-item-name">${p.name}${p.name === current ? " ✓" : ""}</div>
+            <div class="modal-item-name">${esc(p.name)}${p.name === current ? " ✓" : ""}</div>
           </div>
-          <span class="modal-pos-badge ${p.pos}">${POS_ABBR[p.pos] || p.pos}</span>`;
+          <span class="modal-pos-badge ${p.pos}">${esc(POS_ABBR[p.pos] || p.pos)}</span>`;
         let pressTimer;
         item.addEventListener("touchstart", () => { pressTimer = setTimeout(() => { this.closeModal(); this.showCard(p.name); }, 500); }, { passive: true });
         item.addEventListener("touchend", () => clearTimeout(pressTimer));
@@ -2614,19 +2636,18 @@ window.UI = window.App = {
         card.setAttribute("aria-label", `Reproducir gol: ${desc}`);
 
         if (vid) {
-          const thumbUrl = `https://img.youtube.com/vi/${vid}/hqdefault.jpg`;
+          const thumbUrl = `https://img.youtube.com/vi/${encodeURIComponent(vid)}/hqdefault.jpg`;
           const timeMeta = startSec
             ? `<div class="lite-yt-info-meta">⏱ ${Math.floor(startSec / 60)}:${String(startSec % 60).padStart(2, '0')}</div>`
             : '';
           card.innerHTML = `
             <div class="lite-yt-thumb-wrap">
-              <img class="lite-yt-thumb" src="${thumbUrl}" alt="${desc}" loading="${idx < 4 ? 'eager' : 'lazy'}"
-                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+              <img class="lite-yt-thumb" src="${escAttr(thumbUrl)}" alt="${escAttr(desc)}" loading="${idx < 4 ? 'eager' : 'lazy'}">
               <div class="lite-yt-thumb-placeholder" style="display:none">▶</div>
               <div class="lite-yt-play-btn" aria-hidden="true"></div>
             </div>
             <div class="lite-yt-info">
-              <div class="lite-yt-info-desc">⚽ ${desc}${lk.fecha ? ' · ' + lk.fecha : ''}</div>
+              <div class="lite-yt-info-desc">⚽ ${esc(desc)}${lk.fecha ? ' · ' + esc(lk.fecha) : ''}</div>
               ${timeMeta}
             </div>`;
 
@@ -2657,8 +2678,8 @@ window.UI = window.App = {
             if (ph)  ph.style.display  = "none";
             if (btn) btn.style.display = "none";
             // Crear iframe
-            let embedUrl = `https://www.youtube.com/embed/${vid}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
-            if (startSec) embedUrl += `&start=${startSec}`;
+            let embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(vid)}?autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+            if (startSec) embedUrl += `&start=${parseInt(startSec, 10)}`;
             const iframeWrap = document.createElement("div");
             iframeWrap.className = "lite-yt-iframe-wrap";
             const iframe = document.createElement("iframe");
@@ -2681,7 +2702,7 @@ window.UI = window.App = {
               <div class="lite-yt-thumb-placeholder">▶</div>
             </div>
             <div class="lite-yt-info">
-              <div class="lite-yt-info-desc">⚽ ${desc}${lk.fecha ? ' · ' + lk.fecha : ''}</div>
+              <div class="lite-yt-info-desc">⚽ ${esc(desc)}${lk.fecha ? ' · ' + esc(lk.fecha) : ''}</div>
               <div class="lite-yt-info-meta">Sin video registrado</div>
             </div>`;
           card.style.cursor = "default";
@@ -2781,10 +2802,10 @@ window.UI = window.App = {
 
     const meta = document.getElementById("mdMeta");
     meta.innerHTML = `
-      <span class="chip ${ti[1]}">${ti[0]} ${partido.tipo || "AMISTOSO"}</span>
-      <span class="chip">${fmtDate(partido.fecha)}</span>
-      ${partido.cancha ? `<span class="chip chip-cancha">🏟️ CANCHA ${partido.cancha}</span>` : ""}
-      ${partido.camiseta ? `<span class="chip ${partido.camiseta==="AZUL"?"chip-azul":"chip-blanca"}">${partido.camiseta==="AZUL"?"🟦":"⬜"} ${partido.camiseta}</span>` : ""}`;
+      <span class="chip ${ti[1]}">${ti[0]} ${esc(partido.tipo || "AMISTOSO")}</span>
+      <span class="chip">${esc(fmtDate(partido.fecha))}</span>
+      ${partido.cancha ? `<span class="chip chip-cancha">🏟️ CANCHA ${esc(partido.cancha)}</span>` : ""}
+      ${partido.camiseta ? `<span class="chip ${partido.camiseta==="AZUL"?"chip-azul":"chip-blanca"}">${partido.camiseta==="AZUL"?"🟦":"⬜"} ${esc(partido.camiseta)}</span>` : ""}`;
 
     document.getElementById("mdScore").innerHTML = `
       <div class="md-score-num">
@@ -2792,7 +2813,7 @@ window.UI = window.App = {
         <span class="md-score-sep">—</span>
         <span style="color:var(--text-3)">${rival}</span>
       </div>
-      <div class="md-score-label">LIMA FC — ${(partido.rival||"RIVAL").toUpperCase()}</div>
+      <div class="md-score-label">LIMA FC — ${esc((partido.rival||"RIVAL").toUpperCase())}</div>
       <div><span class="md-result-badge ${cls}">${label}</span></div>`;
 
     const golesEl = document.getElementById("mdGoles");
@@ -2840,8 +2861,8 @@ window.UI = window.App = {
       const row = document.createElement("div");
       row.className = "md-player-row";
       row.innerHTML = `
-        <img class="md-player-avatar" src="/images/${p.name.toLowerCase()}.jpg" onerror="this.style.display='none'">
-        <div class="md-player-name">${p.name}</div>
+        <img class="md-player-avatar" src="/images/${escAttr(p.name.toLowerCase())}.jpg">
+        <div class="md-player-name">${esc(p.name)}</div>
         <div class="md-player-badges">
           <span class="md-badge ${s.presente?"present":"absent"}">${s.presente?"✅ JUGÓ":"❌ NO JUGÓ"}</span>
           ${s.goles      ? `<span class="md-badge active">⚽ ${s.goles}</span>`       : ""}
@@ -2869,9 +2890,9 @@ window.UI = window.App = {
       div.className = "player-stats-entry";
       div.innerHTML = `
         <div class="pse-header">
-          <img class="pse-avatar" src="/images/${p.name.toLowerCase()}.jpg" onerror="this.style.display='none'" alt="${p.name}">
-          <span class="pse-name">${p.name}</span>
-          <span class="pse-pos">${POS_ABBR[p.pos]||p.pos}</span>
+          <img class="pse-avatar" src="/images/${escAttr(p.name.toLowerCase())}.jpg" alt="${escAttr(p.name)}">
+          <span class="pse-name">${esc(p.name)}</span>
+          <span class="pse-pos">${esc(POS_ABBR[p.pos]||p.pos)}</span>
         </div>
         <div class="pse-grid" id="pse_${p.name}"></div>
         <div class="pse-urls" id="pse_urls_${p.name}"></div>`;
@@ -2910,7 +2931,15 @@ window.UI = window.App = {
       inp.placeholder = "https://youtube.com/watch?v=...";
       inp.value = State.currentMatchStats[name].gol_urls[i] || "";
       const idx = i;
-      inp.addEventListener("input", () => { State.currentMatchStats[name].gol_urls[idx] = inp.value.trim(); });
+      inp.addEventListener("input", () => {
+        const val = inp.value.trim();
+        if (val && !extractYouTubeId(val)) {
+          inp.style.borderColor = "var(--loss)";
+        } else {
+          inp.style.borderColor = "";
+          State.currentMatchStats[name].gol_urls[idx] = val;
+        }
+      });
       row.appendChild(inp);
       container.appendChild(row);
     }
@@ -3070,8 +3099,21 @@ window.UI = window.App = {
     const lima   = Number(document.getElementById("matchScoreLima").value) || 0;
     const rv     = Number(document.getElementById("matchScoreRival").value) || 0;
     if (!fecha) { alert("Ingresá la fecha del partido"); return; }
+    // Sanitize: validate date format, cap scores, strip invalid YouTube URLs
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) { alert("Formato de fecha inválido"); return; }
+    const safeLima = Math.max(0, Math.min(99, lima));
+    const safeRv   = Math.max(0, Math.min(99, rv));
+    const safeRival = rival.slice(0, 50);
+    const safeCancha = cancha.slice(0, 10);
+    // Strip non-YouTube URLs from gol_urls
+    const cleanStats = JSON.parse(JSON.stringify(State.currentMatchStats));
+    Object.values(cleanStats).forEach(s => {
+      if (Array.isArray(s.gol_urls)) {
+        s.gol_urls = s.gol_urls.map(u => (u && extractYouTubeId(u)) ? u : "");
+      }
+    });
     const pid = State.editingMatchId || "partido_" + Date.now();
-    set(ref(db, "lima/partidos/" + pid), { fecha, rival, cancha, camiseta, tipo, score_lima: lima, score_rival: rv, stats: State.currentMatchStats })
+    set(ref(db, "lima/partidos/" + pid), { fecha, rival: safeRival, cancha: safeCancha, camiseta, tipo, score_lima: safeLima, score_rival: safeRv, stats: cleanStats })
       .then(() => { this.closeMatchForm(); toast("Partido guardado ✓"); logEvent(analytics, "match_saved", { rival }); })
       .catch(err => alert("Error: " + err.message));
   },
@@ -3201,7 +3243,14 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone && !s
 // Service Worker
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
 
-console.log("[Lima FC v2] Firebase:", firebaseConfig.databaseURL);
+// Image fallback handler: hide broken images instead of using inline onerror
+document.addEventListener("error", e => {
+  if (e.target.tagName === "IMG") {
+    e.target.style.display = "none";
+    const fallback = e.target.nextElementSibling;
+    if (fallback && fallback.style.display === "none") fallback.style.display = "flex";
+  }
+}, true);
 </script>
 </body>
 </html>
