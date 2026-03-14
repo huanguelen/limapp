@@ -1975,7 +1975,7 @@ function saveFormation() {
   syncStatus("saving");
   set(stateRef, { formation: State.formation, assigned: State.assigned })
     .then(() => syncStatus("live"))
-    .catch(e => { console.error("saveFormation failed:", e); syncStatus("error"); });
+    .catch(() => syncStatus("error"));
 }
 
 // ─── FIREBASE AUTH (anonymous) + INIT ───
@@ -1983,7 +1983,7 @@ signInAnonymously(auth).catch(err => console.error("Anonymous auth failed:", err
 
 onAuthStateChanged(auth, user => {
   if (!user) return;
-  console.log("Authenticated anonymously, uid:", user.uid);
+  if (user.isAnonymous) console.log("Auth: anonymous, uid:", user.uid);
 
   // Version check
   onValue(versionRef, snap => {
@@ -2360,9 +2360,8 @@ window.UI = window.App = {
         if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
       }
     } catch (e) {
-      console.error("Google login error:", e.code, e.message, e);
       if (e.code !== 'auth/popup-closed-by-user') {
-        errEl.textContent = "Error al iniciar sesión: " + (e.code || e.message);
+        errEl.textContent = "Error al iniciar sesión. Intentá de nuevo.";
         if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
       }
     } finally {
