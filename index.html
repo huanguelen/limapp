@@ -1975,7 +1975,7 @@ function saveFormation() {
   syncStatus("saving");
   set(stateRef, { formation: State.formation, assigned: State.assigned })
     .then(() => syncStatus("live"))
-    .catch(() => syncStatus("error"));
+    .catch(e => { console.error("saveFormation failed:", e); syncStatus("error"); });
 }
 
 // ─── FIREBASE AUTH (anonymous) + INIT ───
@@ -2340,6 +2340,7 @@ window.UI = window.App = {
     const ADMINS = ['bizcachadigital@gmail.com', 'daniel.huangue@gmail.com'];
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
       const email = result.user.email.toLowerCase();
       if (ADMINS.includes(email)) {
