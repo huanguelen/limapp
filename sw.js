@@ -1,4 +1,4 @@
-const CACHE = 'lima-v42';
+const CACHE = 'lima-v43';
 const STATIC = ['/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -24,7 +24,8 @@ self.addEventListener('fetch', e => {
       url.hostname.includes('firebase') ||
       url.hostname.includes('googleapis') ||
       url.hostname.includes('gstatic') ||
-      url.hostname.includes('google-analytics')) {
+      url.hostname.includes('google-analytics') ||
+      url.hostname === 'apis.google.com') {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' })
         .catch(() => caches.match('/index.html'))
