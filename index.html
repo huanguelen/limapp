@@ -2337,11 +2337,11 @@ window.UI = window.App = {
     const btn = document.getElementById("loginGoogleBtn");
     btn.disabled = true;
     errEl.textContent = "";
-    const ADMINS = ['bizcachadigital@gmail.com', 'Daniel.huangue@gmail.com'];
+    const ADMINS = ['bizcachadigital@gmail.com', 'daniel.huangue@gmail.com'];
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      const email = result.user.email;
+      const email = result.user.email.toLowerCase();
       if (ADMINS.includes(email)) {
         State.isDT = true;
         window.trackEvent("dt_login");
