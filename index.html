@@ -2359,8 +2359,9 @@ window.UI = window.App = {
         if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
       }
     } catch (e) {
+      console.error("Google login error:", e.code, e.message, e);
       if (e.code !== 'auth/popup-closed-by-user') {
-        errEl.textContent = "Error al iniciar sesión";
+        errEl.textContent = "Error al iniciar sesión: " + (e.code || e.message);
         if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
       }
     } finally {
