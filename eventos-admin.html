@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1d3a">
+  <title>Lima FC · Eventos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:          #0b0e1f;
+      --surface:     #111426;
+      --surface-2:   #161a30;
+      --surface-3:   #1c2140;
+      --border:      #1e2444;
+      --border-2:    #252c50;
+      --blue:        #2E3092;
+      --cyan:        #00AEEF;
+      --cyan-dim:    rgba(0,174,239,0.15);
+      --cyan-glow:   rgba(0,174,239,0.35);
+      --text:        #edf0ff;
+      --text-2:      #8a93bc;
+      --text-3:      #6b7599;
+      --win:         #4ade80;
+      --draw:        #facc15;
+      --loss:        #f87171;
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bot:    env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Barlow Condensed", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: var(--safe-top) 0 var(--safe-bot);
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px;
+      padding-top: calc(10px + env(safe-area-inset-top, 0px));
+      min-height: 56px;
+      background: linear-gradient(180deg, #070a18 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    header::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% -10%, rgba(0,174,239,.18) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    header::after {
+      content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent); opacity: .5;
+    }
+    .header-back {
+      background: none; border: none; color: var(--cyan);
+      font-size: 22px; cursor: pointer; padding: 8px;
+      min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1; transition: transform .15s; text-decoration: none;
+    }
+    .header-back:active { transform: scale(.9); }
+    .header-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 4px; color: #fff;
+      text-shadow: 0 0 20px rgba(0,174,239,.2);
+      position: relative; z-index: 1;
+    }
+
+    /* ── CONTENT ── */
+    .admin-content {
+      max-width: 600px; margin: 0 auto; padding: 16px;
+    }
+    .admin-header {
+      font-family: "Bebas Neue", sans-serif; font-size: 28px;
+      color: var(--cyan); letter-spacing: 4px; text-align: center; margin-bottom: 6px;
+    }
+    .admin-sub {
+      font-size: 11px; color: var(--text-3); letter-spacing: 1.5px;
+      text-align: center; margin-bottom: 22px; font-family: "Inter", system-ui, sans-serif;
+    }
+
+    /* ── SECTION CARD ── */
+    .section-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 3px; color: var(--cyan); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── FORM ── */
+    .admin-field {
+      width: 100%; padding: 12px 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 14px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; margin-bottom: 10px; transition: border-color .2s;
+    }
+    .admin-field::placeholder { color: var(--text-3); }
+    .admin-field:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.2); }
+    textarea.admin-field {
+      resize: vertical; min-height: 80px; line-height: 1.5;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .admin-btn {
+      padding: 12px 24px;
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 3px; color: #fff;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 1px solid rgba(0,174,239,.4); border-radius: 8px;
+      cursor: pointer; transition: all .2s;
+    }
+    .admin-btn:active { transform: scale(.97); }
+    .admin-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .admin-btn.success {
+      background: linear-gradient(135deg, #166534, #14532d);
+      border-color: rgba(74,222,128,.4);
+    }
+    .admin-btn.whatsapp {
+      background: linear-gradient(135deg, #128C7E, #075E54);
+      border-color: rgba(37,211,102,.4);
+    }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── STATUS / MESSAGES ── */
+    .admin-msg {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      margin-top: 10px; min-height: 18px; letter-spacing: .3px;
+    }
+    .admin-msg.error { color: var(--loss); }
+    .admin-msg.ok { color: var(--win); }
+
+    /* ── AUTH ── */
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .auth-overlay.hidden { display: none; }
+    .auth-card {
+      width: 100%; max-width: 380px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px 24px; text-align: center;
+    }
+    .auth-card .admin-header { margin-bottom: 4px; }
+    .auth-card .admin-sub { margin-bottom: 18px; }
+    .auth-error {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      color: var(--loss); min-height: 18px; margin-top: 8px; text-align: center;
+    }
+
+    /* ── PREVIEW CARD ── */
+    .preview-card {
+      background: #ffffff; border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border); margin-top: 14px;
+    }
+    .preview-header {
+      background: linear-gradient(135deg, #0b0e1f, #1c2140);
+      padding: 24px 20px; text-align: center;
+    }
+    .preview-logo {
+      font-family: "Bebas Neue", sans-serif; font-size: 28px;
+      color: #00AEEF; letter-spacing: 6px;
+    }
+    .preview-logo-sub {
+      font-family: "Inter", sans-serif; font-size: 9px;
+      color: #8a93bc; letter-spacing: 3px; margin-top: 2px;
+    }
+    .preview-body {
+      padding: 24px 20px; color: #1a1a2e;
+      font-family: "Inter", sans-serif; font-size: 14px; line-height: 1.6;
+    }
+    .preview-event-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      color: #2E3092; letter-spacing: 2px; margin-bottom: 12px;
+      text-align: center;
+    }
+    .preview-event-desc {
+      color: #444; margin-bottom: 16px; white-space: pre-line;
+    }
+    .preview-link {
+      display: block; text-align: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 2px; color: #00AEEF; margin-top: 10px;
+    }
+    .preview-footer {
+      background: #f0f0f5; padding: 12px 20px;
+      text-align: center; font-size: 10px; color: #8a93bc;
+      font-family: "Inter", sans-serif; letter-spacing: 1px;
+    }
+
+    /* ── WHATSAPP TEXT PREVIEW ── */
+    .wa-preview {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px; margin-top: 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-2); white-space: pre-line; line-height: 1.6;
+      max-height: 300px; overflow-y: auto;
+    }
+
+    /* ── EVENTS LIST ── */
+    .evento-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .evento-icon {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 2px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .evento-info { flex: 1; min-width: 0; }
+    .evento-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 2px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .evento-meta {
+      font-family: "Inter", system-ui, sans-serif; font-size: 11px;
+      color: var(--text-3); margin-top: 2px;
+    }
+    .evento-actions {
+      display: flex; gap: 6px; flex-shrink: 0;
+    }
+    .evento-action-btn {
+      background: none; border: none; font-size: 16px;
+      cursor: pointer; padding: 6px; transition: transform .15s;
+    }
+    .evento-action-btn:active { transform: scale(.85); }
+    .eventos-empty {
+      text-align: center; color: var(--text-3);
+      font-size: 13px; padding: 20px; letter-spacing: 1px;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ═══ AUTH OVERLAY ═══ -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="admin-header">🔐 ADMIN</div>
+    <div class="admin-sub">INGRESO ADMINISTRADOR</div>
+    <input class="admin-field" type="email" id="authEmail" placeholder="Email" autocomplete="email">
+    <input class="admin-field" type="password" id="authPass" placeholder="Contraseña" autocomplete="current-password">
+    <button class="admin-btn" id="btnAuth" onclick="doLogin()" style="width:100%">INGRESAR</button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<header>
+  <a href="/" class="header-back" aria-label="Volver">←</a>
+  <span class="header-title">LIMA FC</span>
+  <button id="btnLogout" onclick="doLogout()" style="display:none;position:absolute;right:16px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid var(--border);color:var(--text-2);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s">SALIR</button>
+</header>
+
+<div class="admin-content" id="mainContent" style="display:none">
+  <div class="admin-header">📢 EVENTOS</div>
+  <div class="admin-sub">CREAR EVENTOS Y COMPARTIR POR WHATSAPP</div>
+
+  <!-- ═══ NAV ADMIN ═══ -->
+  <div style="text-align:center;margin-bottom:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <a href="/prode-admin.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--cyan);background:var(--surface);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:all .2s">⚙️ ADMIN PRODE</a>
+    <a href="/users-admin.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--cyan);background:var(--surface);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:all .2s">👥 USUARIOS</a>
+  </div>
+
+  <!-- ═══ CREAR EVENTO ═══ -->
+  <div class="section-card">
+    <div class="section-title">✏️ CREAR EVENTO</div>
+    <input class="admin-field" type="text" id="eventoNombre" placeholder="Nombre del evento" maxlength="100">
+    <textarea class="admin-field" id="eventoDesc" placeholder="Descripción del evento..." maxlength="1000"></textarea>
+    <div class="btn-row">
+      <button class="admin-btn" onclick="generarPreview()">VISTA PREVIA</button>
+      <button class="admin-btn success" id="btnGuardar" onclick="guardarEvento()" disabled>GUARDAR</button>
+    </div>
+    <div class="admin-msg" id="formMsg"></div>
+  </div>
+
+  <!-- ═══ VISTA PREVIA ═══ -->
+  <div class="section-card" id="previewSection" style="display:none">
+    <div class="section-title">👁️ VISTA PREVIA</div>
+
+    <div class="preview-card" id="previewCard">
+      <div class="preview-header">
+        <div class="preview-logo">⚽ LIMA FC</div>
+        <div class="preview-logo-sub">FÚTBOL · COMUNIDAD · PASIÓN</div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-event-name" id="previewNombre"></div>
+        <div class="preview-event-desc" id="previewDesc"></div>
+        <a class="preview-link" href="https://lima-fc.pages.dev/" target="_blank">🔗 lima-fc.pages.dev</a>
+      </div>
+      <div class="preview-footer">LIMA FC — lima-fc.pages.dev</div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="section-title">💬 TEXTO PARA WHATSAPP</div>
+      <div class="wa-preview" id="waPreview"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="admin-btn whatsapp" onclick="enviarWhatsApp()">📲 ABRIR WHATSAPP</button>
+      <button class="admin-btn" onclick="copiarTexto()">📋 COPIAR TEXTO</button>
+    </div>
+    <div class="admin-msg" id="shareMsg"></div>
+  </div>
+
+  <!-- ═══ EVENTOS GUARDADOS ═══ -->
+  <div class="section-card">
+    <div class="section-title">📋 EVENTOS GUARDADOS</div>
+    <div id="eventosList">
+      <div class="eventos-empty">No hay eventos creados</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove, push } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { USE_MOCK, firebaseConfig } from "./config.js";
+
+const ADMIN_EMAILS = ["bizcachadigital@gmail.com", "daniel.huangue@gmail.com", "admin@admin.com"];
+const LIMA_URL = "https://lima-fc.pages.dev/";
+
+let _dbSet, _dbGet, _dbRemove, _dbPush, _dbRef, db, auth;
+
+// ── Mock helpers ──
+function mockRef(db, path) { return path; }
+function mockDbSet(path, data) {
+  const store = JSON.parse(localStorage.getItem("limaEventos") || "{}");
+  const key = path.split("/").pop();
+  store[key] = data;
+  localStorage.setItem("limaEventos", JSON.stringify(store));
+  return Promise.resolve();
+}
+function mockDbGet(path) {
+  const store = JSON.parse(localStorage.getItem("limaEventos") || "{}");
+  if (path === "lima/eventos") {
+    return Promise.resolve({ val: () => Object.keys(store).length ? store : null });
+  }
+  const key = path.split("/").pop();
+  return Promise.resolve({ val: () => store[key] || null });
+}
+function mockDbRemove(path) {
+  const store = JSON.parse(localStorage.getItem("limaEventos") || "{}");
+  const key = path.split("/").pop();
+  delete store[key];
+  localStorage.setItem("limaEventos", JSON.stringify(store));
+  return Promise.resolve();
+}
+function mockDbPush(parentPath) {
+  const id = "evt_" + Date.now();
+  return { key: id, ref: parentPath + "/" + id };
+}
+
+if (!USE_MOCK) {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getDatabase(fbApp);
+  auth = getAuth(fbApp);
+  _dbSet = set;
+  _dbGet = get;
+  _dbRemove = remove;
+  _dbPush = (parentRef) => push(parentRef);
+  _dbRef = ref;
+
+  onAuthStateChanged(auth, (user) => {
+    if (user && ADMIN_EMAILS.includes(user.email)) {
+      document.getElementById("authOverlay").classList.add("hidden");
+      document.getElementById("mainContent").style.display = "";
+      document.getElementById("btnLogout").style.display = "block";
+      loadEventos();
+    } else if (user) {
+      document.getElementById("authError").textContent = "No tenés permisos de administrador";
+    }
+  });
+} else {
+  console.log("%c[MOCK MODE] Firebase deshabilitado — usando localStorage", "color:#00AEEF;font-weight:bold");
+  document.getElementById("authOverlay").classList.add("hidden");
+  document.getElementById("mainContent").style.display = "";
+  db = null;
+  _dbRef = mockRef;
+  _dbSet = (path, data) => mockDbSet(path, data);
+  _dbGet = (path) => mockDbGet(path);
+  _dbRemove = (path) => mockDbRemove(path);
+  _dbPush = (parentPath) => mockDbPush(parentPath);
+}
+
+// ── Auth ──
+window.doLogin = async function() {
+  const email = document.getElementById("authEmail").value.trim();
+  const pass = document.getElementById("authPass").value;
+  const errEl = document.getElementById("authError");
+  errEl.textContent = "";
+  if (!email || !pass) { errEl.textContent = "Completá todos los campos"; return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    const msgs = {
+      "auth/invalid-credential": "Email o contraseña incorrectos",
+      "auth/too-many-requests": "Demasiados intentos. Intentá más tarde",
+    };
+    errEl.textContent = msgs[e.code] || "Error: " + e.message;
+  }
+};
+window.doLogout = function() { signOut(auth).then(() => location.reload()); };
+
+// Listen for Enter on auth fields
+document.getElementById("authEmail").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+document.getElementById("authPass").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogin(); });
+
+// ── Escape HTML ──
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ── Current WhatsApp text ──
+let currentWaText = "";
+
+// ── Generate preview ──
+window.generarPreview = function() {
+  const nombre = document.getElementById("eventoNombre").value.trim();
+  const desc = document.getElementById("eventoDesc").value.trim();
+  const msgEl = document.getElementById("formMsg");
+
+  if (!nombre) { msgEl.textContent = "Ingresá el nombre del evento"; msgEl.className = "admin-msg error"; return; }
+  if (!desc) { msgEl.textContent = "Ingresá la descripción"; msgEl.className = "admin-msg error"; return; }
+  msgEl.textContent = "";
+
+  // Update visual preview
+  document.getElementById("previewNombre").textContent = nombre;
+  document.getElementById("previewDesc").textContent = desc;
+
+  // Build WhatsApp text
+  currentWaText = `⚽ *LIMA FC*\n` +
+    `━━━━━━━━━━━━━━━\n\n` +
+    `📢 *${nombre}*\n\n` +
+    `${desc}\n\n` +
+    `━━━━━━━━━━━━━━━\n` +
+    `🔗 ${LIMA_URL}\n` +
+    `⚽ Lima FC — Fútbol · Comunidad · Pasión`;
+
+  document.getElementById("waPreview").textContent = currentWaText;
+  document.getElementById("previewSection").style.display = "";
+  document.getElementById("btnGuardar").disabled = false;
+  document.getElementById("shareMsg").textContent = "";
+};
+
+// ── Send to WhatsApp ──
+window.enviarWhatsApp = function() {
+  if (!currentWaText) return;
+  const url = "https://wa.me/?text=" + encodeURIComponent(currentWaText);
+  window.open(url, "_blank");
+};
+
+// ── Copy text ──
+window.copiarTexto = function() {
+  if (!currentWaText) return;
+  const msgEl = document.getElementById("shareMsg");
+  navigator.clipboard.writeText(currentWaText).then(() => {
+    msgEl.textContent = "✓ Texto copiado al portapapeles";
+    msgEl.className = "admin-msg ok";
+    setTimeout(() => { msgEl.textContent = ""; }, 2500);
+  }).catch(() => {
+    msgEl.textContent = "No se pudo copiar. Seleccioná el texto manualmente.";
+    msgEl.className = "admin-msg error";
+  });
+};
+
+// ── Save event ──
+window.guardarEvento = async function() {
+  const nombre = document.getElementById("eventoNombre").value.trim();
+  const desc = document.getElementById("eventoDesc").value.trim();
+  const msgEl = document.getElementById("formMsg");
+  const btn = document.getElementById("btnGuardar");
+
+  if (!nombre || !desc) { msgEl.textContent = "Completá los campos"; msgEl.className = "admin-msg error"; return; }
+
+  btn.disabled = true;
+  btn.textContent = "GUARDANDO...";
+
+  const evento = {
+    nombre,
+    descripcion: desc,
+    creado: new Date().toISOString(),
+    waText: currentWaText
+  };
+
+  try {
+    if (USE_MOCK) {
+      const newRef = _dbPush("lima/eventos");
+      await _dbSet("lima/eventos/" + newRef.key, evento);
+    } else {
+      const newRef = _dbPush(_dbRef(db, "lima/eventos"));
+      await _dbSet(newRef, evento);
+    }
+    msgEl.textContent = "✓ Evento guardado";
+    msgEl.className = "admin-msg ok";
+    // Reset form
+    document.getElementById("eventoNombre").value = "";
+    document.getElementById("eventoDesc").value = "";
+    document.getElementById("previewSection").style.display = "none";
+    btn.textContent = "GUARDAR";
+    btn.disabled = true;
+    currentWaText = "";
+    await loadEventos();
+  } catch (e) {
+    console.error("Error saving event:", e);
+    msgEl.textContent = "Error al guardar: " + e.message;
+    msgEl.className = "admin-msg error";
+    btn.textContent = "GUARDAR";
+    btn.disabled = false;
+  }
+};
+
+// ── Load saved events ──
+async function loadEventos() {
+  const container = document.getElementById("eventosList");
+  try {
+    const snap = await _dbGet(_dbRef(db, "lima/eventos"));
+    const all = snap.val();
+    if (!all) {
+      container.innerHTML = '<div class="eventos-empty">No hay eventos creados</div>';
+      return;
+    }
+
+    const entries = Object.entries(all).sort((a, b) =>
+      new Date(b[1].creado) - new Date(a[1].creado)
+    );
+
+    let html = "";
+    for (const [key, evt] of entries) {
+      const fecha = new Date(evt.creado).toLocaleDateString("es-AR", {
+        day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+      });
+      html += `<div class="evento-card">`;
+      html += `<div class="evento-icon">📢</div>`;
+      html += `<div class="evento-info">`;
+      html += `<div class="evento-name">${esc(evt.nombre)}</div>`;
+      html += `<div class="evento-meta">${fecha}</div>`;
+      html += `</div>`;
+      html += `<div class="evento-actions">`;
+      html += `<button class="evento-action-btn" title="Compartir por WhatsApp" onclick="reenviarWA('${key}')">📲</button>`;
+      html += `<button class="evento-action-btn" title="Eliminar" onclick="eliminarEvento('${key}')">🗑️</button>`;
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
+  } catch (e) {
+    console.error("Error loading events:", e);
+    container.innerHTML = '<div class="eventos-empty">Error cargando eventos</div>';
+  }
+}
+
+// ── Re-share via WhatsApp ──
+window.reenviarWA = async function(key) {
+  try {
+    const snap = await _dbGet(_dbRef(db, `lima/eventos/${key}`));
+    const evt = snap.val();
+    if (!evt) return;
+    const text = evt.waText || `⚽ *LIMA FC*\n━━━━━━━━━━━━━━━\n\n📢 *${evt.nombre}*\n\n${evt.descripcion}\n\n━━━━━━━━━━━━━━━\n🔗 ${LIMA_URL}\n⚽ Lima FC — Fútbol · Comunidad · Pasión`;
+    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+  } catch (e) {
+    console.error("Error resharing:", e);
+  }
+};
+
+// ── Delete event ──
+window.eliminarEvento = async function(key) {
+  if (!confirm("¿Eliminar este evento?")) return;
+  try {
+    await _dbRemove(_dbRef(db, `lima/eventos/${key}`));
+    await loadEventos();
+  } catch (e) {
+    console.error("Error deleting event:", e);
+  }
+};
+
+// Load events on init (mock mode)
+if (USE_MOCK) loadEventos();
+</script>
+</body>
+</html>
