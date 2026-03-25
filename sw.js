@@ -1,4 +1,4 @@
-const CACHE = 'lima-v51';
+const CACHE = 'lima-v52';
 const STATIC = ['/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -36,7 +36,8 @@ self.addEventListener('fetch', e => {
     e.respondWith(
       caches.match(e.request).then(hit => hit ||
         fetch(e.request).then(res => {
-          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
           return res;
         })
       )
