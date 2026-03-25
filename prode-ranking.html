@@ -321,6 +321,11 @@ function esc(s) {
   return d.innerHTML;
 }
 
+function formatName(email) {
+  if (!email || !email.includes("@")) return email || "?";
+  return email.split("@")[0].replace(/[._]/g, " ");
+}
+
 function render(ranking) {
   const podiumEl = document.getElementById("podium");
   const listEl = document.getElementById("rankList");
@@ -331,34 +336,32 @@ function render(ranking) {
     return;
   }
 
-  // Podium: need at least 3
-  if (ranking.length >= 3) {
-    const [first, second, third] = ranking;
-    podiumEl.innerHTML = `
-      <div class="podium-slot second">
-        <div class="podium-avatar">${second.emoji}<span class="podium-medal">🥈</span></div>
-        <div class="podium-name">${esc(second.name)}</div>
-        <div class="podium-points">${second.pts} pts</div>
-        <div class="podium-bar"><span class="podium-rank">2°</span></div>
-      </div>
-      <div class="podium-slot first">
-        <div class="podium-avatar">${first.emoji}<span class="podium-medal">🥇</span></div>
-        <div class="podium-name">${esc(first.name)}</div>
-        <div class="podium-points">${first.pts} pts</div>
-        <div class="podium-bar"><span class="podium-rank">1°</span></div>
-      </div>
-      <div class="podium-slot third">
-        <div class="podium-avatar">${third.emoji}<span class="podium-medal">🥉</span></div>
-        <div class="podium-name">${esc(third.name)}</div>
-        <div class="podium-points">${third.pts} pts</div>
-        <div class="podium-bar"><span class="podium-rank">3°</span></div>
-      </div>
-    `;
-  } else {
-    podiumEl.innerHTML = "";
+  // Podium slots
+  const slots = [
+    { cls: "first", medal: "🥇", rank: "1°" },
+    { cls: "second", medal: "🥈", rank: "2°" },
+    { cls: "third", medal: "🥉", rank: "3°" },
+  ];
+  // Visual order: 2nd, 1st, 3rd
+  const podiumOrder = [1, 0, 2];
+  let podiumHtml = "";
+  for (const idx of podiumOrder) {
+    if (idx < ranking.length) {
+      const r = ranking[idx];
+      const s = slots[idx];
+      podiumHtml += `
+        <div class="podium-slot ${s.cls}">
+          <div class="podium-avatar">${r.emoji}<span class="podium-medal">${s.medal}</span></div>
+          <div class="podium-name">${esc(r.name)}</div>
+          <div class="podium-points">${r.pts} pts</div>
+          <div class="podium-bar"><span class="podium-rank">${s.rank}</span></div>
+        </div>`;
+    }
   }
+  podiumEl.innerHTML = podiumHtml;
 
-  const startIdx = ranking.length >= 3 ? 3 : 0;
+  // Rest: after podium
+  const startIdx = Math.min(3, ranking.length);
   let html = "";
   for (let i = startIdx; i < ranking.length; i++) {
     const r = ranking[i];
@@ -396,7 +399,7 @@ async function loadRanking() {
     const ranking = [];
     let emojiIdx = 0;
     for (const [uid, data] of Object.entries(scoringData)) {
-      const name = data.email || uid.substring(0, 8) + "...";
+      const name = formatName(data.email) || uid.substring(0, 8) + "...";
       const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
       emojiIdx++;
 
