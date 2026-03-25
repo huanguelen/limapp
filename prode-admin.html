@@ -353,6 +353,7 @@
 <header>
   <a href="/prode.html" class="header-back" aria-label="Volver">←</a>
   <span class="header-title">LIMA FC</span>
+  <button id="btnLogout" onclick="doLogout()" style="display:none;position:absolute;right:16px;top:50%;transform:translateY(-50%);background:transparent;border:1px solid var(--border);color:var(--text-2);font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s">SALIR</button>
 </header>
 
 <div class="admin-content">
@@ -440,7 +441,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
@@ -461,6 +462,7 @@ if (!USE_MOCK) {
   onAuthStateChanged(auth, (user) => {
     if (user && ADMIN_EMAILS.includes(user.email)) {
       document.getElementById("authOverlay").classList.add("hidden");
+      document.getElementById("btnLogout").style.display = "block";
       loadFechas();
     } else if (user) {
       document.getElementById("authError").textContent = "No tenés permisos de administrador";
@@ -974,6 +976,13 @@ async function doLogin() {
   }
 }
 window.doLogin = doLogin;
+
+async function doLogout() {
+  await signOut(auth);
+  document.getElementById("btnLogout").style.display = "none";
+  document.getElementById("authOverlay").classList.remove("hidden");
+}
+window.doLogout = doLogout;
 
 // Handle enter key on auth fields
 document.getElementById("authPass").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
