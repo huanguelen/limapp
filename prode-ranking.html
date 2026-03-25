@@ -304,33 +304,16 @@
   </a>
 </nav>
 
-<script>
-const PLAYERS = [
-  "Gasti","Felipe","Esteban","Lucas","Seba","Agustín",
-  "Mauro","Murga","Cabe","Crina","Santiago","Fede",
-  "Peia","German","Marce","Caba","Tano","Vita",
-  "Pela","Pablo Moldovan","Sergio","Daniel","Pana","Boris"
-];
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { USE_MOCK, firebaseConfig } from "./config.js";
 
 const INITIALS_EMOJI = [
   "⚽","🦁","🔥","💪","🎯","⭐","🏅","👑","🐺","🦅",
   "🎖️","💎","🚀","🐆","🤙","🏆","⚡","🎲","🥅","🧤",
   "🦾","🫡","🎽","🛡️"
 ];
-
-function generateMockRanking() {
-  // Shuffle players
-  const shuffled = [...PLAYERS].sort(() => Math.random() - 0.5);
-
-  // Generate descending points (max ~48 pts for 1st, realistic spread)
-  const maxPts = 38 + Math.floor(Math.random() * 12);
-  return shuffled.map((name, i) => {
-    const drop = i === 0 ? 0 : Math.floor(Math.random() * 4) + 1;
-    const pts = Math.max(0, maxPts - (i * 2) - Math.floor(Math.random() * 3));
-    const emoji = INITIALS_EMOJI[PLAYERS.indexOf(name)];
-    return { name, pts, emoji };
-  }).sort((a, b) => b.pts - a.pts);
-}
 
 function esc(s) {
   const d = document.createElement("div");
@@ -339,34 +322,45 @@ function esc(s) {
 }
 
 function render(ranking) {
-  // Podium: show 2nd, 1st, 3rd (visual order)
-  const [first, second, third] = ranking;
   const podiumEl = document.getElementById("podium");
-  podiumEl.innerHTML = `
-    <div class="podium-slot second">
-      <div class="podium-avatar">${second.emoji}<span class="podium-medal">🥈</span></div>
-      <div class="podium-name">${esc(second.name)}</div>
-      <div class="podium-points">${second.pts} pts</div>
-      <div class="podium-bar"><span class="podium-rank">2°</span></div>
-    </div>
-    <div class="podium-slot first">
-      <div class="podium-avatar">${first.emoji}<span class="podium-medal">🥇</span></div>
-      <div class="podium-name">${esc(first.name)}</div>
-      <div class="podium-points">${first.pts} pts</div>
-      <div class="podium-bar"><span class="podium-rank">1°</span></div>
-    </div>
-    <div class="podium-slot third">
-      <div class="podium-avatar">${third.emoji}<span class="podium-medal">🥉</span></div>
-      <div class="podium-name">${esc(third.name)}</div>
-      <div class="podium-points">${third.pts} pts</div>
-      <div class="podium-bar"><span class="podium-rank">3°</span></div>
-    </div>
-  `;
-
-  // Rest: 4th onwards
   const listEl = document.getElementById("rankList");
+
+  if (!ranking || ranking.length === 0) {
+    podiumEl.innerHTML = "";
+    listEl.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:40px;font-family:Inter,sans-serif;font-size:14px">Sin datos de ranking aún.<br>El admin debe calcular puntajes primero.</div>';
+    return;
+  }
+
+  // Podium: need at least 3
+  if (ranking.length >= 3) {
+    const [first, second, third] = ranking;
+    podiumEl.innerHTML = `
+      <div class="podium-slot second">
+        <div class="podium-avatar">${second.emoji}<span class="podium-medal">🥈</span></div>
+        <div class="podium-name">${esc(second.name)}</div>
+        <div class="podium-points">${second.pts} pts</div>
+        <div class="podium-bar"><span class="podium-rank">2°</span></div>
+      </div>
+      <div class="podium-slot first">
+        <div class="podium-avatar">${first.emoji}<span class="podium-medal">🥇</span></div>
+        <div class="podium-name">${esc(first.name)}</div>
+        <div class="podium-points">${first.pts} pts</div>
+        <div class="podium-bar"><span class="podium-rank">1°</span></div>
+      </div>
+      <div class="podium-slot third">
+        <div class="podium-avatar">${third.emoji}<span class="podium-medal">🥉</span></div>
+        <div class="podium-name">${esc(third.name)}</div>
+        <div class="podium-points">${third.pts} pts</div>
+        <div class="podium-bar"><span class="podium-rank">3°</span></div>
+      </div>
+    `;
+  } else {
+    podiumEl.innerHTML = "";
+  }
+
+  const startIdx = ranking.length >= 3 ? 3 : 0;
   let html = "";
-  for (let i = 3; i < ranking.length; i++) {
+  for (let i = startIdx; i < ranking.length; i++) {
     const r = ranking[i];
     html += `
       <div class="rank-row">
@@ -379,8 +373,73 @@ function render(ranking) {
   listEl.innerHTML = html;
 }
 
-// Init
-render(generateMockRanking());
+async function loadRanking() {
+  if (USE_MOCK) {
+    render([
+      { name: "Jugador Demo", pts: 10, emoji: "⚽" },
+      { name: "Jugador 2", pts: 7, emoji: "🦁" },
+      { name: "Jugador 3", pts: 5, emoji: "🔥" },
+    ]);
+    return;
+  }
+
+  try {
+    const fbApp = initializeApp(firebaseConfig);
+    const db = getDatabase(fbApp);
+
+    // 1. Read scoring
+    const scoringSnap = await get(ref(db, "lima/prode/scoring"));
+    const scoringData = scoringSnap.val();
+    if (!scoringData) { render([]); return; }
+
+    // 2. Read usuarios to map uid -> name/email
+    const usersSnap = await get(ref(db, "lima/usuarios"));
+    const usersData = usersSnap.val() || {};
+    const uidToName = {};
+    for (const [k, u] of Object.entries(usersData)) {
+      if (u.uid) {
+        uidToName[u.uid] = u.nombre || u.email || k;
+      }
+    }
+
+    // 3. Build ranking array
+    const ranking = [];
+    let emojiIdx = 0;
+    for (const [uid, data] of Object.entries(scoringData)) {
+      const name = uidToName[uid] || uid.substring(0, 8) + "...";
+      const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
+      emojiIdx++;
+
+      // Sum total from all fechas
+      let totalPts = 0, totalAciertos = 0, totalExactos = 0;
+      if (data.fechas) {
+        for (const f of Object.values(data.fechas)) {
+          totalPts += f.puntos || 0;
+          totalAciertos += f.aciertos || 0;
+          totalExactos += f.exactos || 0;
+        }
+      }
+
+      ranking.push({
+        name,
+        pts: data.total || totalPts,
+        aciertos: totalAciertos,
+        exactos: totalExactos,
+        emoji
+      });
+    }
+
+    // Sort by points descending, then by exactos descending as tiebreaker
+    ranking.sort((a, b) => b.pts - a.pts || b.exactos - a.exactos || b.aciertos - a.aciertos);
+
+    render(ranking);
+  } catch (e) {
+    console.error("Error loading ranking:", e);
+    document.getElementById("rankList").innerHTML = '<div style="text-align:center;color:var(--loss);padding:20px;font-family:Inter,sans-serif;font-size:13px">Error al cargar ranking</div>';
+  }
+}
+
+loadRanking();
 </script>
 </body>
 </html>
