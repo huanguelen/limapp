@@ -146,6 +146,35 @@
     }
     .success-link:active { transform: scale(.97); }
 
+    /* ── LOADING SPINNER ── */
+    .loading-spinner {
+      width: 56px; height: 56px;
+      border: 3px solid var(--border-2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-pulse {
+      display: inline-block;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: .4; }
+      50% { opacity: 1; }
+    }
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0% { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+
     /* ── ERROR STATE (invalid/expired link) ── */
     .error-state {
       text-align: center; display: none;
@@ -204,9 +233,14 @@
   <div id="successState" class="success-state">
     <div class="success-icon">✅</div>
     <div class="success-title">¡REGISTRO COMPLETADO!</div>
+    <div style="margin:24px 0 8px">
+      <div class="loading-spinner"></div>
+    </div>
     <div class="success-text">
-      Tu cuenta fue creada exitosamente.<br>
-      Serás redirigido al Prode en unos segundos...
+      <span class="loading-pulse">Preparando tu Prode<span class="loading-dots"></span></span>
+    </div>
+    <div style="font-family:'Inter',system-ui,sans-serif;font-size:11px;color:var(--text-3);margin-bottom:20px">
+      Aguardá un instante, estás siendo redirigido
     </div>
     <a href="/prode.html" class="success-link">IR AL PRODE →</a>
   </div>
