@@ -387,26 +387,16 @@ async function loadRanking() {
     const fbApp = initializeApp(firebaseConfig);
     const db = getDatabase(fbApp);
 
-    // 1. Read scoring
+    // 1. Read scoring (public)
     const scoringSnap = await get(ref(db, "lima/prode/scoring"));
     const scoringData = scoringSnap.val();
     if (!scoringData) { render([]); return; }
 
-    // 2. Read usuarios to map uid -> name/email
-    const usersSnap = await get(ref(db, "lima/usuarios"));
-    const usersData = usersSnap.val() || {};
-    const uidToName = {};
-    for (const [k, u] of Object.entries(usersData)) {
-      if (u.uid) {
-        uidToName[u.uid] = u.nombre || u.email || k;
-      }
-    }
-
-    // 3. Build ranking array
+    // 2. Build ranking array from scoring data (email is stored in scoring)
     const ranking = [];
     let emojiIdx = 0;
     for (const [uid, data] of Object.entries(scoringData)) {
-      const name = uidToName[uid] || uid.substring(0, 8) + "...";
+      const name = data.email || uid.substring(0, 8) + "...";
       const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
       emojiIdx++;
 

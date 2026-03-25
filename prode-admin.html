@@ -1046,30 +1046,33 @@ async function calculateScores() {
       existingScoring[uid].total += puntos;
     }
 
-    // 6. Save merged scoring
-    await _dbSet(_dbRef(db, "lima/prode/scoring"), existingScoring);
-
-    // 7. Show summary for this fecha
+    // 5b. Add user emails to scoring
     const usersSnap = await _dbGet(_dbRef(db, "lima/usuarios"));
     const usersData = usersSnap.val() || {};
     const uidToEmail = {};
     for (const [k, u] of Object.entries(usersData)) {
       if (u.uid) uidToEmail[u.uid] = u.email || u.nombre || k;
     }
+    for (const uid of Object.keys(existingScoring)) {
+      existingScoring[uid].email = uidToEmail[uid] || uid.substring(0, 8) + "...";
+    }
 
+    // 6. Save merged scoring
+    await _dbSet(_dbRef(db, "lima/prode/scoring"), existingScoring);
+
+    // 7. Show summary for this fecha
     const fechaEntries = Object.entries(existingScoring)
       .filter(([uid, d]) => d.fechas[fechaKey])
-      .map(([uid, d]) => ({ uid, ...d.fechas[fechaKey], totalGeneral: d.total }))
+      .map(([uid, d]) => ({ uid, email: d.email || uid.substring(0, 8) + "...", ...d.fechas[fechaKey], totalGeneral: d.total }))
       .sort((a, b) => b.puntos - a.puntos);
 
     let summaryHtml = `<strong>Fecha ${fecha.numero} — Puntajes calculados y guardados</strong><br><br>`;
     summaryHtml += `<table style="width:100%;font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse">`;
     summaryHtml += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Fecha</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
     fechaEntries.forEach((e, i) => {
-      const name = uidToEmail[e.uid] || e.uid.substring(0, 8) + "...";
       summaryHtml += `<tr style="border-bottom:1px solid var(--border)">`;
       summaryHtml += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
-      summaryHtml += `<td style="padding:6px">${esc(name)}</td>`;
+      summaryHtml += `<td style="padding:6px">${esc(e.email)}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${e.puntos}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center">${e.aciertos}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center;color:var(--cyan)">${e.exactos}</td>`;
