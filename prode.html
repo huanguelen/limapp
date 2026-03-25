@@ -843,6 +843,26 @@ async function doSaveFecha(fechaKey) {
   const btn = document.getElementById("saveBtn_" + fechaKey);
   const msgEl = document.getElementById("saveMsg_" + fechaKey);
   btn.disabled = true;
+  btn.textContent = "VERIFICANDO...";
+
+  // Re-check that the fecha is still active before saving
+  try {
+    const fechaSnap = await _dbGet(_dbRef(db, `lima/prode/fechas/${fechaKey}`));
+    const fechaData = fechaSnap.val();
+    if (!fechaData || fechaData.active === false) {
+      if (msgEl) { msgEl.textContent = "⚠ Esta fecha fue desactivada por el admin"; msgEl.className = "prode-save-msg error"; }
+      btn.textContent = "FECHA CERRADA";
+      btn.disabled = true;
+      return;
+    }
+  } catch (e) {
+    console.error("Error checking fecha status:", e);
+    if (msgEl) { msgEl.textContent = "Error al verificar estado de la fecha"; msgEl.className = "prode-save-msg error"; }
+    btn.textContent = `GUARDAR FECHA ${activeFechas[fechaKey]?.numero || fechaKey}`;
+    updateFechaProgress(fechaKey);
+    return;
+  }
+
   btn.textContent = "GUARDANDO...";
 
   const matchEls = document.querySelectorAll(`.prode-match[data-fecha="${fechaKey}"]`);
