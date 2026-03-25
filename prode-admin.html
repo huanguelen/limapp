@@ -313,10 +313,42 @@
     }
     .result-summary strong { color: var(--win); }
     #resultsSection { display: none; }
+
+    /* ── AUTH OVERLAY ── */
+    .auth-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .auth-overlay.hidden { display: none; }
+    .auth-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px; width: 100%; max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+    .auth-card .admin-header { margin-bottom: 4px; }
+    .auth-card .admin-sub { margin-bottom: 18px; }
+    .auth-error {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      color: var(--loss); min-height: 18px; margin-top: 8px; text-align: center;
+    }
   </style>
 </head>
 
 <body>
+
+<!-- ═══ AUTH OVERLAY ═══ -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="admin-header">🔐 ADMIN</div>
+    <div class="admin-sub">INGRESO ADMINISTRADOR</div>
+    <input class="admin-field" type="email" id="authEmail" placeholder="Email" autocomplete="email">
+    <input class="admin-field" type="password" id="authPass" placeholder="Contraseña" autocomplete="current-password">
+    <button class="admin-btn" id="btnAuth" onclick="doLogin()" style="width:100%">INGRESAR</button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
 
 <header>
   <a href="/prode.html" class="header-back" aria-label="Volver">←</a>
@@ -408,20 +440,35 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
-let _dbSet, _dbGet, _dbRemove, _dbRef, db;
+const ADMIN_EMAILS = ["bizcachadigital@gmail.com", "daniel.huangue@gmail.com"];
+
+let _dbSet, _dbGet, _dbRemove, _dbRef, db, auth;
 
 if (!USE_MOCK) {
   const fbApp = initializeApp(firebaseConfig);
   db = getDatabase(fbApp);
+  auth = getAuth(fbApp);
   _dbSet = set;
   _dbGet = get;
   _dbRemove = remove;
   _dbRef = ref;
+
+  // Wait for auth state
+  onAuthStateChanged(auth, (user) => {
+    if (user && ADMIN_EMAILS.includes(user.email)) {
+      document.getElementById("authOverlay").classList.add("hidden");
+      loadFechas();
+    } else if (user) {
+      document.getElementById("authError").textContent = "No tenés permisos de administrador";
+    }
+  });
 } else {
   document.getElementById("mockBadge").style.display = "";
+  document.getElementById("authOverlay").classList.add("hidden");
   console.log("%c[MOCK MODE] Firebase deshabilitado — usando localStorage", "color:#00AEEF;font-weight:bold");
   db = null;
   _dbRef = (d, path) => path;
@@ -910,8 +957,29 @@ function closeViewResults() {
 }
 window.closeViewResults = closeViewResults;
 
+// ── Login ──
+async function doLogin() {
+  const email = document.getElementById("authEmail").value.trim();
+  const pass = document.getElementById("authPass").value;
+  document.getElementById("authError").textContent = "";
+  if (!email || !pass) { document.getElementById("authError").textContent = "Completá email y contraseña"; return; }
+  document.getElementById("btnAuth").disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    const msg = e.code === "auth/invalid-credential" ? "Email o contraseña incorrectos" : e.message;
+    document.getElementById("authError").textContent = msg;
+  } finally {
+    document.getElementById("btnAuth").disabled = false;
+  }
+}
+window.doLogin = doLogin;
+
+// Handle enter key on auth fields
+document.getElementById("authPass").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
 // ── Init ──
-loadFechas();
+if (USE_MOCK) loadFechas();
 </script>
 </body>
 </html>
