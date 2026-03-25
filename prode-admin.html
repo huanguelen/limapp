@@ -432,6 +432,7 @@
     <div class="section-title">📊 RESULTADOS — FECHA <span id="viewResultsNum"></span></div>
     <div id="viewResultsSummary" class="result-summary"></div>
     <div id="viewResultsContent"></div>
+    <div id="existingScoringTable" class="result-summary" style="display:none"></div>
     <div id="calcResultMsg" class="result-summary" style="display:none"></div>
     <div class="btn-row">
       <button class="admin-btn" onclick="calculateScores()" id="btnCalcScores">🏆 CALCULAR PUNTAJES</button>
@@ -955,6 +956,9 @@ async function viewResults(key) {
     ? `<strong>${playedCount}</strong> de ${totalMatches} partidos con resultado${updatedInfo}`
     : `Sin resultados cargados aún`;
 
+  // Load existing scoring for this fecha
+  await loadExistingScoring(key);
+
   section.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 window.viewResults = viewResults;
@@ -962,8 +966,54 @@ window.viewResults = viewResults;
 function closeViewResults() {
   document.getElementById("viewResultsSection").style.display = "none";
   document.getElementById("calcResultMsg").style.display = "none";
+  document.getElementById("existingScoringTable").style.display = "none";
 }
 window.closeViewResults = closeViewResults;
+
+// ═══════════════════════════════════════════
+// PUNTAJES EXISTENTES
+// ═══════════════════════════════════════════
+async function loadExistingScoring(fechaKey) {
+  const el = document.getElementById("existingScoringTable");
+  try {
+    const scoringSnap = await _dbGet(_dbRef(db, "lima/prode/scoring"));
+    const scoringData = scoringSnap.val();
+    if (!scoringData) { el.style.display = "none"; return; }
+
+    const entries = Object.entries(scoringData)
+      .filter(([uid, d]) => d.fechas && d.fechas[fechaKey])
+      .map(([uid, d]) => ({
+        email: d.email || uid.substring(0, 8) + "...",
+        puntos: d.fechas[fechaKey].puntos,
+        aciertos: d.fechas[fechaKey].aciertos,
+        exactos: d.fechas[fechaKey].exactos,
+        totalGeneral: d.total
+      }))
+      .sort((a, b) => b.puntos - a.puntos);
+
+    if (entries.length === 0) { el.style.display = "none"; return; }
+
+    let html = `<strong>🏆 Puntajes calculados</strong><br><br>`;
+    html += `<table style="width:100%;font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse">`;
+    html += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Fecha</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
+    entries.forEach((e, i) => {
+      html += `<tr style="border-bottom:1px solid var(--border)">`;
+      html += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
+      html += `<td style="padding:6px">${esc(e.email)}</td>`;
+      html += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${e.puntos}</td>`;
+      html += `<td style="padding:6px;text-align:center">${e.aciertos}</td>`;
+      html += `<td style="padding:6px;text-align:center;color:var(--cyan)">${e.exactos}</td>`;
+      html += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${e.totalGeneral}</td>`;
+      html += `</tr>`;
+    });
+    html += `</table>`;
+    el.innerHTML = html;
+    el.style.display = "block";
+  } catch (e) {
+    console.error("Error loading existing scoring:", e);
+    el.style.display = "none";
+  }
+}
 
 // ═══════════════════════════════════════════
 // CALCULAR PUNTAJES
@@ -1081,6 +1131,9 @@ async function calculateScores() {
     });
     summaryHtml += `</table>`;
     msgEl.innerHTML = summaryHtml;
+
+    // Update the existing scoring table
+    await loadExistingScoring(fechaKey);
 
   } catch (e) {
     console.error("Error calculating scores:", e);
