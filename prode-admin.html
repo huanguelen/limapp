@@ -531,8 +531,9 @@ function parseGEBA(html, fechaNum) {
 // FETCH from URL via CORS proxy
 // ═══════════════════════════════════════════
 const CORS_PROXIES = [
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `/api/proxy?url=${encodeURIComponent(url)}`,
   url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
 
 async function fetchHtml(url) {
