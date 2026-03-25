@@ -432,7 +432,9 @@
     <div class="section-title">📊 RESULTADOS — FECHA <span id="viewResultsNum"></span></div>
     <div id="viewResultsSummary" class="result-summary"></div>
     <div id="viewResultsContent"></div>
+    <div id="calcResultMsg" class="result-summary" style="display:none"></div>
     <div class="btn-row">
+      <button class="admin-btn" onclick="calculateScores()" id="btnCalcScores">🏆 CALCULAR PUNTAJES</button>
       <button class="admin-btn danger" onclick="closeViewResults()">✕ CERRAR</button>
     </div>
   </div>
@@ -956,8 +958,141 @@ window.viewResults = viewResults;
 
 function closeViewResults() {
   document.getElementById("viewResultsSection").style.display = "none";
+  document.getElementById("calcResultMsg").style.display = "none";
 }
 window.closeViewResults = closeViewResults;
+
+// ═══════════════════════════════════════════
+// CALCULAR PUNTAJES
+// ═══════════════════════════════════════════
+function slugify(s) {
+  return s.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+async function calculateScores() {
+  const btn = document.getElementById("btnCalcScores");
+  const msgEl = document.getElementById("calcResultMsg");
+  btn.disabled = true;
+  btn.textContent = "Calculando...";
+  msgEl.style.display = "block";
+  msgEl.innerHTML = "Procesando...";
+
+  try {
+    // 1. Get all fechas
+    const fechasSnap = await _dbGet(_dbRef(db, "lima/prode/fechas"));
+    const fechasData = fechasSnap.val();
+    if (!fechasData) { msgEl.innerHTML = "No hay fechas cargadas"; return; }
+
+    // 2. Get all predictions
+    const predSnap = await _dbGet(_dbRef(db, "lima/prode/predictions"));
+    const allPredictions = predSnap.val() || {};
+
+    // 3. Build results map per fecha: matchId -> { homeScore, awayScore }
+    const puntajes = {}; // { uid: { fechaKey: { puntos, aciertos, exactos, detalle }, total } }
+
+    for (const [fechaKey, fecha] of Object.entries(fechasData)) {
+      const resultsMap = {};
+      let hasResults = false;
+      for (const group of (fecha.groups || [])) {
+        for (const m of group.matches) {
+          if (m.homeScore != null && m.awayScore != null) {
+            const mid = slugify(m.home) + "_" + slugify(m.away);
+            resultsMap[mid] = { home: m.homeScore, away: m.awayScore };
+            hasResults = true;
+          }
+        }
+      }
+      if (!hasResults) continue;
+
+      // 4. For each user, compare predictions vs results
+      for (const [uid, userPreds] of Object.entries(allPredictions)) {
+        if (!userPreds[fechaKey]) continue;
+        const fechaPreds = userPreds[fechaKey];
+
+        if (!puntajes[uid]) puntajes[uid] = {};
+        let puntos = 0, aciertos = 0, exactos = 0;
+
+        for (const [mid, result] of Object.entries(resultsMap)) {
+          const pred = fechaPreds[mid];
+          if (!pred || pred.home == null || pred.away == null) continue;
+
+          // Determine winner/draw for result
+          const realOutcome = result.home > result.away ? "H" : result.home < result.away ? "A" : "D";
+          const predOutcome = pred.home > pred.away ? "H" : pred.home < pred.away ? "A" : "D";
+
+          if (realOutcome === predOutcome) {
+            puntos += 1;
+            aciertos++;
+            // Exact score bonus
+            if (pred.home === result.home && pred.away === result.away) {
+              puntos += 3;
+              exactos++;
+            }
+          }
+        }
+
+        puntajes[uid][fechaKey] = { puntos, aciertos, exactos, fecha: fecha.numero };
+      }
+    }
+
+    // 5. Calculate totals and save
+    const scoring = {};
+    for (const [uid, fechas] of Object.entries(puntajes)) {
+      let total = 0;
+      const detalle = {};
+      for (const [fk, data] of Object.entries(fechas)) {
+        total += data.puntos;
+        detalle[fk] = data;
+      }
+      scoring[uid] = { total, fechas: detalle };
+    }
+
+    // 6. Save to Firebase
+    await _dbSet(_dbRef(db, "lima/prode/scoring"), scoring);
+
+    // 7. Show summary
+    const sorted = Object.entries(scoring).sort((a, b) => b[1].total - a[1].total);
+
+    // Get user emails for display
+    const usersSnap = await _dbGet(_dbRef(db, "lima/usuarios"));
+    const usersData = usersSnap.val() || {};
+    const uidToEmail = {};
+    for (const [k, u] of Object.entries(usersData)) {
+      if (u.uid) uidToEmail[u.uid] = u.email || u.nombre || k;
+    }
+    // Also check predictions UIDs in auth (some may not be in usuarios)
+    for (const [uid] of sorted) {
+      if (!uidToEmail[uid]) uidToEmail[uid] = uid.substring(0, 8) + "...";
+    }
+
+    let summaryHtml = `<strong>Puntajes calculados y guardados</strong><br><br>`;
+    summaryHtml += `<table style="width:100%;font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse">`;
+    summaryHtml += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Pts</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th></tr>`;
+    sorted.forEach(([uid, data], i) => {
+      let totalAciertos = 0, totalExactos = 0;
+      for (const f of Object.values(data.fechas)) { totalAciertos += f.aciertos; totalExactos += f.exactos; }
+      summaryHtml += `<tr style="border-bottom:1px solid var(--border)">`;
+      summaryHtml += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
+      summaryHtml += `<td style="padding:6px">${esc(uidToEmail[uid])}</td>`;
+      summaryHtml += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${data.total}</td>`;
+      summaryHtml += `<td style="padding:6px;text-align:center">${totalAciertos}</td>`;
+      summaryHtml += `<td style="padding:6px;text-align:center;color:var(--cyan)">${totalExactos}</td>`;
+      summaryHtml += `</tr>`;
+    });
+    summaryHtml += `</table>`;
+    msgEl.innerHTML = summaryHtml;
+
+  } catch (e) {
+    console.error("Error calculating scores:", e);
+    msgEl.innerHTML = `<span style="color:var(--loss)">Error: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🏆 CALCULAR PUNTAJES";
+  }
+}
+window.calculateScores = calculateScores;
 
 // ── Login ──
 async function doLogin() {
