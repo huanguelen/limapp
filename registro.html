@@ -201,7 +201,7 @@
     <div class="success-title">¡REGISTRO COMPLETADO!</div>
     <div class="success-text">
       Tu cuenta fue creada exitosamente.<br>
-      Ya podés ingresar al Prode y empezar a jugar.
+      Serás redirigido al Prode en unos segundos...
     </div>
     <a href="/prode.html" class="success-link">IR AL PRODE →</a>
   </div>
@@ -356,8 +356,9 @@ document.getElementById("registerForm").addEventListener("submit", async () => {
 
     await _dbSet(_dbRef(db, "lima/usuarios/" + key), userData);
 
-    // Show success
+    // Show success and redirect
     showState("success");
+    setTimeout(() => { window.location.href = "/prode.html"; }, 3000);
   } catch (err) {
     const msgs = {
       "auth/email-already-in-use": "Este email ya tiene una cuenta. Intentá ingresar directamente.",
