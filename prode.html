@@ -470,16 +470,9 @@
   <div class="auth-card">
     <div class="auth-logo">🎲 PRODE LIMA</div>
     <div class="auth-subtitle">INGRESÁ PARA JUGAR</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">INGRESAR</button>
-      <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">REGISTRARSE</button>
-    </div>
     <form id="authForm" onsubmit="return false">
       <input class="auth-field" type="email" id="authEmail" placeholder="Email" required autocomplete="email">
       <input class="auth-field" type="password" id="authPass" placeholder="Contraseña" required autocomplete="current-password" minlength="6">
-      <div class="auth-confirm-row" id="confirmRow">
-        <input class="auth-field" type="password" id="authPassConfirm" placeholder="Confirmar contraseña" autocomplete="new-password" minlength="6">
-      </div>
       <button class="auth-btn" type="submit" id="authBtn">INGRESAR</button>
     </form>
     <div class="auth-error" id="authError"></div>
@@ -548,7 +541,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
@@ -571,19 +564,6 @@ function mockSignIn(auth, email, pass) {
       resolve({ user });
     } else {
       reject({ code: "auth/invalid-credential" });
-    }
-  });
-}
-function mockCreateUser(auth, email, pass) {
-  return new Promise((resolve, reject) => {
-    if (email === MOCK_USER.email) {
-      reject({ code: "auth/email-already-in-use" });
-    } else {
-      const user = { uid: "mock-" + Date.now(), email };
-      mockAuth.currentUser = user;
-      localStorage.setItem("mockSession", JSON.stringify(user));
-      mockAuth._notify();
-      resolve({ user });
     }
   });
 }
@@ -645,14 +625,13 @@ function mockRef(db, path) { return path; }
 
 // ── Init real or mock ──
 let fbApp, auth, db;
-let _signIn, _createUser, _signOutFn, _onAuth, _dbSet, _dbGet, _dbRef;
+let _signIn, _signOutFn, _onAuth, _dbSet, _dbGet, _dbRef;
 
 if (!USE_MOCK) {
   fbApp = initializeApp(firebaseConfig);
   auth = getAuth(fbApp);
   db = getDatabase(fbApp);
   _signIn = signInWithEmailAndPassword;
-  _createUser = createUserWithEmailAndPassword;
   _signOutFn = signOut;
   _onAuth = onAuthStateChanged;
   _dbSet = set;
@@ -663,7 +642,6 @@ if (!USE_MOCK) {
   auth = mockAuth;
   db = null;
   _signIn = mockSignIn;
-  _createUser = mockCreateUser;
   _signOutFn = () => mockSignOut();
   _onAuth = mockOnAuthStateChanged;
   _dbSet = (r, data) => mockDbSet(r, data);
@@ -672,33 +650,13 @@ if (!USE_MOCK) {
 }
 
 let currentUser = null;
-let authMode = "login";
-
-// ── Auth UI ──
-function switchAuthTab(mode) {
-  authMode = mode;
-  document.getElementById("tabLogin").classList.toggle("active", mode === "login");
-  document.getElementById("tabRegister").classList.toggle("active", mode === "register");
-  document.getElementById("confirmRow").classList.toggle("visible", mode === "register");
-  document.getElementById("authBtn").textContent = mode === "login" ? "INGRESAR" : "REGISTRARSE";
-  document.getElementById("authError").textContent = "";
-  if (mode === "register") {
-    document.getElementById("authPassConfirm").required = true;
-    document.getElementById("authPass").autocomplete = "new-password";
-  } else {
-    document.getElementById("authPassConfirm").required = false;
-    document.getElementById("authPass").autocomplete = "current-password";
-  }
-}
-window.switchAuthTab = switchAuthTab;
-
 function showAuthError(msg) {
   document.getElementById("authError").textContent = msg;
 }
 
 function setAuthLoading(loading) {
   document.getElementById("authBtn").disabled = loading;
-  document.getElementById("authBtn").textContent = loading ? "..." : (authMode === "login" ? "INGRESAR" : "REGISTRARSE");
+  document.getElementById("authBtn").textContent = loading ? "..." : "INGRESAR";
 }
 
 // ── Auth form submit ──
@@ -710,28 +668,12 @@ document.getElementById("authForm").addEventListener("submit", async () => {
   if (!email || !pass) { showAuthError("Completá todos los campos"); return; }
   if (pass.length < 6) { showAuthError("La contraseña debe tener al menos 6 caracteres"); return; }
 
-  if (authMode === "register") {
-    const passConfirm = document.getElementById("authPassConfirm").value;
-    if (pass !== passConfirm) { showAuthError("Las contraseñas no coinciden"); return; }
-  }
-
   setAuthLoading(true);
   try {
-    if (authMode === "login") {
-      await _signIn(auth, email, pass);
-    } else {
-      const cred = await _createUser(auth, email, pass);
-      // Save user in "usuarios" table
-      await _dbSet(_dbRef(db, "lima/usuarios/" + cred.user.uid), {
-        email: email,
-        creado: new Date().toISOString()
-      });
-    }
+    await _signIn(auth, email, pass);
   } catch (err) {
     const msgs = {
-      "auth/email-already-in-use": "Ese email ya está registrado",
       "auth/invalid-email": "Email inválido",
-      "auth/weak-password": "La contraseña es muy débil (mínimo 6 caracteres)",
       "auth/user-not-found": "Usuario no encontrado",
       "auth/wrong-password": "Contraseña incorrecta",
       "auth/invalid-credential": "Email o contraseña incorrectos",
