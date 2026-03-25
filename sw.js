@@ -1,4 +1,4 @@
-const CACHE = 'lima-v50';
+const CACHE = 'lima-v51';
 const STATIC = ['/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -17,18 +17,16 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // NEVER cache: HTML pages, Firebase, Google APIs
+  // Skip cross-origin requests — let the browser handle them directly
+  if (url.origin !== self.location.origin) return;
+
+  // HTML pages: network only, offline fallback
   if (e.request.mode === 'navigate' ||
       url.pathname === '/' ||
-      url.pathname === '/index.html' ||
-      url.hostname.includes('firebase') ||
-      url.hostname.includes('googleapis') ||
-      url.hostname.includes('gstatic') ||
-      url.hostname.includes('google-analytics') ||
-      url.hostname === 'apis.google.com') {
+      url.pathname.endsWith('.html')) {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' })
-        .catch(() => caches.match('/index.html'))
+        .catch(() => caches.match('/index.html').then(r => r || new Response('Offline', { status: 503 })))
     );
     return;
   }
@@ -46,9 +44,10 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Everything else: network first, cache fallback
+  // Everything else (same-origin): network first, cache fallback
   e.respondWith(
-    fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request))
+    fetch(e.request, { cache: 'no-store' })
+      .catch(() => caches.match(e.request).then(r => r || new Response('Offline', { status: 503 })))
   );
 });
 
