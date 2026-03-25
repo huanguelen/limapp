@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1d3a">
+  <title>Lima FC · Completar Registro</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:          #0b0e1f;
+      --surface:     #111426;
+      --surface-2:   #161a30;
+      --surface-3:   #1c2140;
+      --border:      #1e2444;
+      --border-2:    #252c50;
+      --blue:        #2E3092;
+      --cyan:        #00AEEF;
+      --cyan-dim:    rgba(0,174,239,0.15);
+      --cyan-glow:   rgba(0,174,239,0.35);
+      --text:        #edf0ff;
+      --text-2:      #8a93bc;
+      --text-3:      #6b7599;
+      --win:         #4ade80;
+      --draw:        #facc15;
+      --loss:        #f87171;
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bot:    env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Barlow Condensed", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+
+    /* ── REGISTER CARD ── */
+    .register-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 24px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4), 0 0 60px rgba(0,174,239,.06);
+      position: relative; overflow: hidden;
+    }
+    .register-card::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan), var(--blue));
+    }
+
+    .register-logo {
+      text-align: center; margin-bottom: 8px;
+    }
+    .register-logo h1 {
+      font-family: "Bebas Neue", sans-serif; font-size: 36px;
+      letter-spacing: 8px; color: #fff;
+      text-shadow: 0 0 30px rgba(0,174,239,.3);
+    }
+    .register-logo p {
+      font-family: "Inter", system-ui, sans-serif; font-size: 10px;
+      letter-spacing: 3px; color: var(--text-3); margin-top: 2px;
+    }
+
+    .register-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      letter-spacing: 4px; color: var(--cyan); text-align: center;
+      margin: 20px 0 6px;
+    }
+    .register-sub {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      color: var(--text-3); text-align: center; line-height: 1.5;
+      margin-bottom: 22px;
+    }
+
+    /* ── FORM ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label {
+      font-family: "Bebas Neue", sans-serif; font-size: 12px;
+      letter-spacing: 2px; color: var(--text-3); margin-bottom: 6px;
+      display: block;
+    }
+    .form-field {
+      width: 100%; padding: 12px 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 14px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; transition: border-color .2s;
+    }
+    .form-field::placeholder { color: var(--text-3); }
+    .form-field:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.2); }
+    .form-field:disabled {
+      opacity: .6; cursor: not-allowed;
+      background: var(--surface-3);
+    }
+    .form-field.has-error { border-color: var(--loss); }
+
+    .form-btn {
+      width: 100%; padding: 14px;
+      font-family: "Bebas Neue", sans-serif; font-size: 17px;
+      letter-spacing: 4px; color: #fff;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 1px solid rgba(0,174,239,.4); border-radius: 10px;
+      cursor: pointer; transition: all .2s; margin-top: 18px;
+    }
+    .form-btn:active { transform: scale(.98); }
+    .form-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    .form-msg {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      margin-top: 12px; min-height: 18px; text-align: center;
+    }
+    .form-msg.error { color: var(--loss); }
+    .form-msg.ok { color: var(--win); }
+
+    /* ── SUCCESS STATE ── */
+    .success-state {
+      text-align: center; display: none;
+    }
+    .success-icon {
+      font-size: 48px; margin-bottom: 12px;
+    }
+    .success-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 24px;
+      letter-spacing: 4px; color: var(--win); margin-bottom: 8px;
+    }
+    .success-text {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-2); line-height: 1.5; margin-bottom: 20px;
+    }
+    .success-link {
+      display: inline-block; padding: 12px 28px;
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 3px; color: #fff; text-decoration: none;
+      background: linear-gradient(135deg, #166534, #14532d);
+      border: 1px solid rgba(74,222,128,.4); border-radius: 8px;
+      transition: all .2s;
+    }
+    .success-link:active { transform: scale(.97); }
+
+    /* ── ERROR STATE (invalid/expired link) ── */
+    .error-state {
+      text-align: center; display: none;
+    }
+    .error-icon { font-size: 48px; margin-bottom: 12px; }
+    .error-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      letter-spacing: 3px; color: var(--loss); margin-bottom: 8px;
+    }
+    .error-text {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-2); line-height: 1.5;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="register-card">
+  <div class="register-logo">
+    <h1>LIMA FC</h1>
+    <p>SITIO OFICIAL</p>
+  </div>
+
+  <!-- ── FORM STATE ── -->
+  <div id="formState">
+    <div class="register-title">COMPLETAR REGISTRO</div>
+    <div class="register-sub">Ingresá tu contraseña para activar tu cuenta</div>
+
+    <form id="registerForm" onsubmit="return false">
+      <div class="form-group">
+        <label class="form-label">EMAIL</label>
+        <input class="form-field" type="email" id="regEmail" disabled>
+      </div>
+      <div class="form-group">
+        <label class="form-label">CONTRASEÑA</label>
+        <input class="form-field" type="password" id="regPass"
+          placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">CONFIRMAR CONTRASEÑA</label>
+        <input class="form-field" type="password" id="regPassConfirm"
+          placeholder="Repetí la contraseña" minlength="6" required autocomplete="new-password">
+      </div>
+      <button class="form-btn" type="submit" id="regBtn">CREAR CUENTA</button>
+      <div class="form-msg" id="regMsg"></div>
+    </form>
+  </div>
+
+  <!-- ── SUCCESS STATE ── -->
+  <div id="successState" class="success-state">
+    <div class="success-icon">✅</div>
+    <div class="success-title">¡REGISTRO COMPLETADO!</div>
+    <div class="success-text">
+      Tu cuenta fue creada exitosamente.<br>
+      Ya podés ingresar al Prode y empezar a jugar.
+    </div>
+    <a href="/prode.html" class="success-link">IR AL PRODE →</a>
+  </div>
+
+  <!-- ── ERROR STATE ── -->
+  <div id="errorState" class="error-state">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">ENLACE INVÁLIDO</div>
+    <div class="error-text">
+      Este enlace de registro no es válido o ya fue utilizado.<br>
+      Contactá al administrador para recibir una nueva invitación.
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { USE_MOCK, firebaseConfig } from "./config.js";
+const USERS_KEY = "limaUsers";
+
+let _dbSet, _dbGet, _dbRef, _createUser, auth, db;
+
+if (!USE_MOCK) {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getDatabase(fbApp);
+  auth = getAuth(fbApp);
+  _dbSet = set;
+  _dbGet = get;
+  _dbRef = ref;
+  _createUser = createUserWithEmailAndPassword;
+} else {
+  db = null;
+  auth = null;
+  _dbRef = (d, path) => path;
+  _dbSet = (path, data) => {
+    const store = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+    const key = path.split("/").pop();
+    store[key] = data;
+    localStorage.setItem(USERS_KEY, JSON.stringify(store));
+    return Promise.resolve();
+  };
+  _dbGet = (path) => {
+    const store = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+    if (path === "lima/usuarios") {
+      return Promise.resolve({ val: () => Object.keys(store).length ? store : null });
+    }
+    const key = path.split("/").pop();
+    return Promise.resolve({ val: () => store[key] || null });
+  };
+  _createUser = (auth, email, pass) => {
+    const uid = "mock-" + Date.now();
+    const user = { uid, email };
+    localStorage.setItem("mockSession", JSON.stringify(user));
+    return Promise.resolve({ user });
+  };
+}
+
+// ── Read URL params ──
+const params = new URLSearchParams(location.search);
+const paramEmail = (params.get("email") || "").trim().toLowerCase();
+const paramToken = params.get("token") || "";
+
+function emailToKey(email) {
+  return email.toLowerCase().replace(/[^a-z0-9]/g, "_");
+}
+
+function showState(stateId) {
+  document.getElementById("formState").style.display = stateId === "form" ? "" : "none";
+  document.getElementById("successState").style.display = stateId === "success" ? "" : "none";
+  document.getElementById("errorState").style.display = stateId === "error" ? "" : "none";
+}
+
+function setMsg(text, type) {
+  const el = document.getElementById("regMsg");
+  el.className = "form-msg " + type;
+  el.textContent = text;
+}
+
+// ── Validate link ──
+async function init() {
+  if (!paramEmail || !paramToken) {
+    showState("error");
+    return;
+  }
+
+  // Verify token against stored user
+  const key = emailToKey(paramEmail);
+  const snap = await _dbGet(_dbRef(db, "lima/usuarios/" + key));
+  const userData = snap.val();
+
+  if (!userData || userData.token !== paramToken) {
+    showState("error");
+    return;
+  }
+
+  // If user already completed registration
+  if (userData.status === "active") {
+    showState("error");
+    document.querySelector(".error-title").textContent = "YA REGISTRADO";
+    document.querySelector(".error-text").innerHTML =
+      "Esta cuenta ya fue activada.<br>Podés ingresar directamente al Prode.";
+    return;
+  }
+
+  // Show form with email pre-filled
+  document.getElementById("regEmail").value = paramEmail;
+  showState("form");
+}
+
+// ── Form submit ──
+document.getElementById("registerForm").addEventListener("submit", async () => {
+  const pass = document.getElementById("regPass").value;
+  const passConfirm = document.getElementById("regPassConfirm").value;
+  setMsg("", "");
+
+  // Clear previous error styling
+  document.getElementById("regPass").classList.remove("has-error");
+  document.getElementById("regPassConfirm").classList.remove("has-error");
+
+  if (!pass || pass.length < 6) {
+    setMsg("La contraseña debe tener al menos 6 caracteres", "error");
+    document.getElementById("regPass").classList.add("has-error");
+    return;
+  }
+  if (pass !== passConfirm) {
+    setMsg("Las contraseñas no coinciden", "error");
+    document.getElementById("regPassConfirm").classList.add("has-error");
+    return;
+  }
+
+  const btn = document.getElementById("regBtn");
+  btn.disabled = true;
+  btn.textContent = "CREANDO CUENTA...";
+
+  try {
+    // Create auth user
+    const cred = await _createUser(auth, paramEmail, pass);
+
+    // Update user record in DB
+    const key = emailToKey(paramEmail);
+    const snap = await _dbGet(_dbRef(db, "lima/usuarios/" + key));
+    const userData = snap.val() || {};
+
+    userData.email = paramEmail;
+    userData.status = "active";
+    userData.registrado = new Date().toISOString();
+    userData.uid = cred.user.uid;
+    delete userData.token;
+
+    await _dbSet(_dbRef(db, "lima/usuarios/" + key), userData);
+
+    // Show success
+    showState("success");
+  } catch (err) {
+    const msgs = {
+      "auth/email-already-in-use": "Este email ya tiene una cuenta. Intentá ingresar directamente.",
+      "auth/weak-password": "La contraseña es muy débil (mínimo 6 caracteres)",
+      "auth/invalid-email": "Email inválido",
+    };
+    setMsg(msgs[err.code] || "Error: " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "CREAR CUENTA";
+  }
+});
+
+// ── Init ──
+init();
+</script>
+</body>
+</html>

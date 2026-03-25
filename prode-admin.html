@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1d3a">
+  <title>Lima FC · Prode Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:          #0b0e1f;
+      --surface:     #111426;
+      --surface-2:   #161a30;
+      --surface-3:   #1c2140;
+      --border:      #1e2444;
+      --border-2:    #252c50;
+      --blue:        #2E3092;
+      --cyan:        #00AEEF;
+      --cyan-dim:    rgba(0,174,239,0.15);
+      --cyan-glow:   rgba(0,174,239,0.35);
+      --text:        #edf0ff;
+      --text-2:      #8a93bc;
+      --text-3:      #6b7599;
+      --win:         #4ade80;
+      --draw:        #facc15;
+      --loss:        #f87171;
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bot:    env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Barlow Condensed", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: var(--safe-top) 0 var(--safe-bot);
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px;
+      padding-top: calc(10px + env(safe-area-inset-top, 0px));
+      min-height: 56px;
+      background: linear-gradient(180deg, #070a18 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    header::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% -10%, rgba(0,174,239,.18) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    header::after {
+      content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent); opacity: .5;
+    }
+    .header-back {
+      background: none; border: none; color: var(--cyan);
+      font-size: 22px; cursor: pointer; padding: 8px;
+      min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1; transition: transform .15s; text-decoration: none;
+    }
+    .header-back:active { transform: scale(.9); }
+    .header-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 4px; color: #fff;
+      text-shadow: 0 0 20px rgba(0,174,239,.2);
+      position: relative; z-index: 1;
+    }
+
+    /* ── ADMIN CONTENT ── */
+    .admin-content {
+      max-width: 900px; margin: 0 auto; padding: 16px;
+    }
+    .admin-header {
+      font-family: "Bebas Neue", sans-serif; font-size: 28px;
+      color: var(--cyan); letter-spacing: 4px; text-align: center; margin-bottom: 6px;
+    }
+    .admin-sub {
+      font-size: 11px; color: var(--text-3); letter-spacing: 1.5px;
+      text-align: center; margin-bottom: 22px; font-family: "Inter", system-ui, sans-serif;
+    }
+
+    /* ── SECTION CARD ── */
+    .section-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 3px; color: var(--cyan); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── FORM ── */
+    .admin-field {
+      width: 100%; padding: 12px 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 14px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; margin-bottom: 10px; transition: border-color .2s;
+    }
+    .admin-field::placeholder { color: var(--text-3); }
+    .admin-field:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.2); }
+    .admin-field-row {
+      display: flex; gap: 10px; align-items: center;
+    }
+    .admin-field-row .admin-field { flex: 1; }
+    .admin-field-sm { max-width: 100px; text-align: center; }
+
+    .admin-btn {
+      padding: 12px 24px;
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 3px; color: #fff;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 1px solid rgba(0,174,239,.4); border-radius: 8px;
+      cursor: pointer; transition: all .2s;
+    }
+    .admin-btn:active { transform: scale(.97); }
+    .admin-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .admin-btn.danger {
+      background: linear-gradient(135deg, #7f1d1d, #451a1a);
+      border-color: rgba(248,113,113,.3);
+    }
+    .admin-btn.success {
+      background: linear-gradient(135deg, #166534, #14532d);
+      border-color: rgba(74,222,128,.4);
+    }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── STATUS / MESSAGES ── */
+    .admin-msg {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      margin-top: 10px; min-height: 18px; letter-spacing: .3px;
+    }
+    .admin-msg.error { color: var(--loss); }
+    .admin-msg.ok { color: var(--win); }
+    .admin-msg.info { color: var(--draw); }
+
+    .mock-badge {
+      display: inline-block; padding: 3px 10px;
+      font-family: "Bebas Neue", sans-serif; font-size: 11px;
+      letter-spacing: 2px; border-radius: 6px;
+      background: rgba(250,204,21,.12); color: var(--draw);
+      border: 1px solid rgba(250,204,21,.25); margin-left: 8px;
+    }
+
+    /* ── TOGGLE SWITCH ── */
+    .toggle-wrap {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .toggle {
+      position: relative; width: 44px; height: 24px; flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      border-radius: 24px; transition: all .25s;
+    }
+    .toggle-slider::before {
+      content: ""; position: absolute; width: 18px; height: 18px;
+      left: 2px; bottom: 2px; background: var(--text-3);
+      border-radius: 50%; transition: all .25s;
+    }
+    .toggle input:checked + .toggle-slider {
+      background: rgba(0,174,239,.2); border-color: var(--cyan);
+    }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(20px); background: var(--cyan);
+    }
+    .toggle-label {
+      font-family: "Bebas Neue", sans-serif; font-size: 12px;
+      letter-spacing: 2px; color: var(--text-3);
+    }
+    .toggle-label.on { color: var(--win); }
+    .toggle-label.off { color: var(--loss); }
+
+    /* ── FECHAS LIST ── */
+    .fecha-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .fecha-info { flex: 1; min-width: 0; }
+    .fecha-num {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 2px; color: var(--text);
+    }
+    .fecha-meta {
+      font-family: "Inter", system-ui, sans-serif; font-size: 11px;
+      color: var(--text-3); margin-top: 2px;
+    }
+    .fecha-delete {
+      background: none; border: none; color: var(--text-3);
+      font-size: 18px; cursor: pointer; padding: 6px;
+      transition: color .2s;
+    }
+    .fecha-delete:hover { color: var(--loss); }
+    .fechas-empty {
+      text-align: center; color: var(--text-3);
+      font-size: 13px; padding: 20px; letter-spacing: 1px;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+
+    /* ── PREVIEW (replica prode layout) ── */
+    #previewSection { display: none; }
+    .prode-date-group { margin-bottom: 20px; }
+    .prode-date-label {
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 3px; color: var(--cyan);
+      padding: 8px 14px; margin-bottom: 10px;
+      background: linear-gradient(90deg, rgba(0,174,239,.1), transparent);
+      border-left: 3px solid var(--cyan); border-radius: 0 6px 6px 0;
+    }
+    .prode-grid {
+      display: grid; grid-template-columns: 1fr; gap: 10px;
+    }
+    @media (min-width: 540px) {
+      .prode-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .prode-match {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .prode-team {
+      display: flex; align-items: center; gap: 6px;
+      flex: 1; min-width: 0;
+    }
+    .prode-team.away { flex-direction: row-reverse; text-align: right; }
+    .prode-team-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 1.5px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      flex: 1; min-width: 0;
+    }
+    .prode-team.away .prode-team-name { text-align: right; }
+    .prode-score-input {
+      width: 36px; height: 36px; text-align: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 18px;
+      letter-spacing: 1px; color: var(--cyan);
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      border-radius: 8px; outline: none; flex-shrink: 0;
+      -moz-appearance: textfield; transition: border-color .2s;
+    }
+    .prode-score-input::-webkit-inner-spin-button,
+    .prode-score-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .prode-score-input:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.25); }
+    .prode-vs {
+      font-family: "Bebas Neue", sans-serif; font-size: 12px;
+      color: var(--text-3); letter-spacing: 2px; flex-shrink: 0;
+    }
+
+    /* ── TEXTAREA FALLBACK ── */
+    .admin-textarea {
+      width: 100%; min-height: 120px; padding: 12px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; resize: vertical; margin-bottom: 10px;
+    }
+    .admin-textarea:focus { border-color: var(--cyan); }
+    .fallback-note {
+      font-family: "Inter", system-ui, sans-serif; font-size: 11px;
+      color: var(--text-3); margin-bottom: 8px; line-height: 1.5;
+    }
+    #manualSection { display: none; }
+
+    /* ── SPINNER ── */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid var(--border-2); border-top-color: var(--cyan);
+      border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESULTS UPDATE ── */
+    .fecha-update {
+      background: none; border: 1px solid rgba(0,174,239,.3);
+      color: var(--cyan); font-family: "Bebas Neue", sans-serif;
+      font-size: 11px; letter-spacing: 2px; padding: 6px 10px;
+      border-radius: 6px; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .fecha-update:active { transform: scale(.95); }
+    .fecha-update:disabled { opacity: .4; cursor: not-allowed; }
+    .fecha-view {
+      background: none; border: 1px solid rgba(0,174,239,.2);
+      color: var(--text-3); font-size: 18px; padding: 4px 8px;
+      border-radius: 6px; cursor: pointer; transition: all .2s; line-height: 1;
+    }
+    .fecha-view:active { transform: scale(.95); }
+    .fecha-view.has-results { color: var(--win); border-color: rgba(74,222,128,.3); }
+    .result-score-display {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 2px; padding: 4px 10px; border-radius: 6px;
+      flex-shrink: 0; min-width: 60px; text-align: center;
+    }
+    .result-played { color: var(--win); background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.25); }
+    .result-pending { color: var(--text-3); background: var(--surface-3); border: 1px solid var(--border); }
+    .result-summary {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-2); text-align: center; padding: 10px; margin-bottom: 12px;
+    }
+    .result-summary strong { color: var(--win); }
+    #resultsSection { display: none; }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <a href="/prode.html" class="header-back" aria-label="Volver">←</a>
+  <span class="header-title">LIMA FC</span>
+</header>
+
+<div class="admin-content">
+  <div class="admin-header">⚙️ ADMIN PRODE</div>
+  <div class="admin-sub">CARGA Y GESTIÓN DE FECHAS
+    <span class="mock-badge" id="mockBadge" style="display:none">MOCK MODE</span>
+  </div>
+
+  <!-- ═══ NAV ADMIN ═══ -->
+  <div style="text-align:center;margin-bottom:18px">
+    <a href="/users-admin.html" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:var(--cyan);background:var(--surface);border:1px solid var(--border);border-radius:8px;text-decoration:none;transition:all .2s">👥 GESTIÓN DE USUARIOS</a>
+  </div>
+
+  <!-- ═══ FECHAS CARGADAS ═══ -->
+  <div class="section-card">
+    <div class="section-title">📋 FECHAS CARGADAS</div>
+    <div id="fechasList">
+      <div class="fechas-empty">No hay fechas cargadas</div>
+    </div>
+  </div>
+
+  <!-- ═══ CARGAR NUEVA FECHA ═══ -->
+  <div class="section-card">
+    <div class="section-title">🔽 CARGAR NUEVA FECHA</div>
+
+    <div class="admin-field-row">
+      <input class="admin-field" type="url" id="sourceUrl"
+        placeholder="URL (ej: https://www.futbolmayores.geba.org.ar/...)"
+        value="https://www.futbolmayores.geba.org.ar/index.php/torneos-21/apertura-2/junior/calendar/347-2026-junior-apertura">
+      <input class="admin-field admin-field-sm" type="number" id="fechaNum" placeholder="Nº" min="1" max="30" value="">
+    </div>
+
+    <div class="btn-row">
+      <button class="admin-btn" id="btnFetch" onclick="doFetch()">OBTENER DATOS</button>
+      <button class="admin-btn" id="btnManual" onclick="toggleManual()" style="opacity:.6">PEGAR HTML</button>
+    </div>
+
+    <!-- Manual paste fallback -->
+    <div id="manualSection">
+      <div class="fallback-note" style="margin-top:12px">
+        Si la carga automática falla, podés pegar el HTML de la página acá.<br>
+        PowerShell: <code style="color:var(--cyan)">(Invoke-WebRequest -Uri "URL" -UseBasicParsing).Content | Set-Clipboard</code>
+      </div>
+      <textarea class="admin-textarea" id="manualHtml" placeholder="Pegá el HTML acá..."></textarea>
+      <button class="admin-btn" onclick="parseManualHtml()">PARSEAR HTML</button>
+    </div>
+
+    <div class="admin-msg" id="fetchMsg"></div>
+  </div>
+
+  <!-- ═══ PREVIEW ═══ -->
+  <div class="section-card" id="previewSection">
+    <div class="section-title">👁️ PREVIEW — FECHA <span id="previewNum"></span></div>
+    <div id="previewContent"></div>
+    <div class="btn-row">
+      <button class="admin-btn success" onclick="savePreviewData()">💾 GUARDAR</button>
+      <button class="admin-btn danger" onclick="cancelPreview()">✕ CANCELAR</button>
+    </div>
+    <div class="admin-msg" id="saveMsg"></div>
+  </div>
+
+  <!-- ═══ RESULTADOS PREVIEW (update from GEBA) ═══ -->
+  <div class="section-card" id="resultsSection">
+    <div class="section-title">📊 RESULTADOS — FECHA <span id="resultsNum"></span></div>
+    <div id="resultsSummary" class="result-summary"></div>
+    <div id="resultsContent"></div>
+    <div class="btn-row" id="resultsBtnRow">
+      <button class="admin-btn success" onclick="saveResults()">💾 GUARDAR RESULTADOS</button>
+      <button class="admin-btn danger" onclick="cancelResults()">✕ CANCELAR</button>
+    </div>
+    <div class="admin-msg" id="resultsMsg"></div>
+  </div>
+
+  <!-- ═══ VER RESULTADOS (read-only) ═══ -->
+  <div class="section-card" id="viewResultsSection" style="display:none">
+    <div class="section-title">📊 RESULTADOS — FECHA <span id="viewResultsNum"></span></div>
+    <div id="viewResultsSummary" class="result-summary"></div>
+    <div id="viewResultsContent"></div>
+    <div class="btn-row">
+      <button class="admin-btn danger" onclick="closeViewResults()">✕ CERRAR</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+import { USE_MOCK, firebaseConfig } from "./config.js";
+
+let _dbSet, _dbGet, _dbRemove, _dbRef, db;
+
+if (!USE_MOCK) {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getDatabase(fbApp);
+  _dbSet = set;
+  _dbGet = get;
+  _dbRemove = remove;
+  _dbRef = ref;
+} else {
+  document.getElementById("mockBadge").style.display = "";
+  console.log("%c[MOCK MODE] Firebase deshabilitado — usando localStorage", "color:#00AEEF;font-weight:bold");
+  db = null;
+  _dbRef = (d, path) => path;
+  _dbSet = (path, data) => {
+    const store = JSON.parse(localStorage.getItem("prodeFechas") || "{}");
+    const key = path.split("/").pop();
+    store[key] = data;
+    localStorage.setItem("prodeFechas", JSON.stringify(store));
+    return Promise.resolve();
+  };
+  _dbGet = (path) => {
+    const store = JSON.parse(localStorage.getItem("prodeFechas") || "{}");
+    if (path === "lima/prode/fechas") {
+      return Promise.resolve({ val: () => Object.keys(store).length ? store : null });
+    }
+    const key = path.split("/").pop();
+    return Promise.resolve({ val: () => store[key] || null });
+  };
+  _dbRemove = (path) => {
+    const store = JSON.parse(localStorage.getItem("prodeFechas") || "{}");
+    const key = path.split("/").pop();
+    delete store[key];
+    localStorage.setItem("prodeFechas", JSON.stringify(store));
+    return Promise.resolve();
+  };
+}
+
+// ── State ──
+let previewData = null; // { numero, groups: [{ date, matches: [{ home, away }] }] }
+
+// ═══════════════════════════════════════════
+// PARSER — extracts fecha data from GEBA HTML
+// ═══════════════════════════════════════════
+function parseGEBA(html, fechaNum) {
+  // Find FECHA N boundary
+  const fechaTag = `FECHA ${fechaNum}</div>`;
+  const startIdx = html.indexOf(fechaTag);
+  if (startIdx === -1) throw new Error(`No se encontró FECHA ${fechaNum} en el HTML`);
+
+  // Find next FECHA or end
+  const nextFecha = `FECHA ${fechaNum + 1}</div>`;
+  let endIdx = html.indexOf(nextFecha);
+  if (endIdx === -1) endIdx = html.length;
+
+  const section = html.substring(startIdx + fechaTag.length, endIdx);
+
+  // Parse using DOMParser on the section wrapped in a container
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div>${section}</div>`, "text/html");
+  const rows = doc.querySelectorAll(".jstable-row");
+
+  const groups = [];
+  let currentDate = "";
+  let currentMatches = [];
+
+  for (const row of rows) {
+    // Check for time cell (indicates a match row)
+    const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
+    const homeCell = row.querySelector(".jsMatchDivHome .js_div_particName a");
+    const awayCell = row.querySelector(".jsMatchDivAway .js_div_particName a");
+
+    if (timeCell && homeCell && awayCell) {
+      const rawDate = timeCell.textContent.trim();
+      // Extract day info: "Viernes 27 Marzo, 2026 21:50" → "VIERNES 27 MARZO 2026"
+      const dateOnly = rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase();
+
+      if (dateOnly !== currentDate) {
+        if (currentDate && currentMatches.length) {
+          groups.push({ date: currentDate, matches: [...currentMatches] });
+        }
+        currentDate = dateOnly;
+        currentMatches = [];
+      }
+
+      // Extract score from .jsScoreDiv a
+      const scoreAnchor = row.querySelector(".jsScoreDiv a");
+      let homeScore = null, awayScore = null;
+      if (scoreAnchor) {
+        const scoreTxt = scoreAnchor.textContent.trim();
+        const scoreMatch = scoreTxt.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (scoreMatch) {
+          homeScore = parseInt(scoreMatch[1], 10);
+          awayScore = parseInt(scoreMatch[2], 10);
+        }
+      }
+
+      currentMatches.push({
+        home: homeCell.textContent.trim().toUpperCase(),
+        away: awayCell.textContent.trim().toUpperCase(),
+        homeScore,
+        awayScore
+      });
+    }
+  }
+  // Push last group
+  if (currentDate && currentMatches.length) {
+    groups.push({ date: currentDate, matches: [...currentMatches] });
+  }
+
+  if (groups.length === 0) throw new Error(`No se encontraron partidos en FECHA ${fechaNum}`);
+
+  const totalMatches = groups.reduce((s, g) => s + g.matches.length, 0);
+  return { numero: fechaNum, groups, totalMatches };
+}
+
+// ═══════════════════════════════════════════
+// FETCH from URL via CORS proxy
+// ═══════════════════════════════════════════
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+
+async function fetchHtml(url) {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(15000) });
+      if (resp.ok) return await resp.text();
+    } catch (e) { /* try next proxy */ }
+  }
+  throw new Error("No se pudo obtener la página. Usá 'PEGAR HTML' como alternativa.");
+}
+
+function setMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.className = "admin-msg " + type;
+  el.innerHTML = text;
+}
+
+// ── Fetch & Parse ──
+async function doFetch() {
+  const url = document.getElementById("sourceUrl").value.trim();
+  const num = parseInt(document.getElementById("fechaNum").value, 10);
+  if (!url) { setMsg("fetchMsg", "Ingresá la URL", "error"); return; }
+  if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
+
+  document.getElementById("btnFetch").disabled = true;
+  setMsg("fetchMsg", '<span class="spinner"></span>Obteniendo datos...', "info");
+
+  try {
+    const html = await fetchHtml(url);
+    const data = parseGEBA(html, num);
+    previewData = data;
+    showPreview(data);
+    setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados`, "ok");
+  } catch (err) {
+    setMsg("fetchMsg", err.message, "error");
+  } finally {
+    document.getElementById("btnFetch").disabled = false;
+  }
+}
+window.doFetch = doFetch;
+
+// ── Manual paste ──
+function toggleManual() {
+  const el = document.getElementById("manualSection");
+  el.style.display = el.style.display === "none" ? "" : "none";
+}
+window.toggleManual = toggleManual;
+
+function parseManualHtml() {
+  const html = document.getElementById("manualHtml").value;
+  const num = parseInt(document.getElementById("fechaNum").value, 10);
+  if (!html.trim()) { setMsg("fetchMsg", "Pegá el HTML primero", "error"); return; }
+  if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
+
+  try {
+    const data = parseGEBA(html, num);
+    previewData = data;
+    showPreview(data);
+    setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados`, "ok");
+  } catch (err) {
+    setMsg("fetchMsg", err.message, "error");
+  }
+}
+window.parseManualHtml = parseManualHtml;
+
+// ═══════════════════════════════════════════
+// PREVIEW
+// ═══════════════════════════════════════════
+function showPreview(data) {
+  document.getElementById("previewSection").style.display = "block";
+  document.getElementById("previewNum").textContent = data.numero;
+  document.getElementById("saveMsg").textContent = "";
+
+  let html = "";
+  for (const group of data.groups) {
+    html += `<div class="prode-date-group">`;
+    html += `<div class="prode-date-label">📅 FECHA ${data.numero} — ${esc(group.date)}</div>`;
+    html += `<div class="prode-grid">`;
+    for (const m of group.matches) {
+      html += `<div class="prode-match">`;
+      html += `<div class="prode-team home"><span class="prode-team-name">${esc(m.home)}</span>`;
+      html += `<input class="prode-score-input" type="number" min="0" max="20" inputmode="numeric" placeholder="-" disabled></div>`;
+      html += `<span class="prode-vs">VS</span>`;
+      html += `<div class="prode-team away"><span class="prode-team-name">${esc(m.away)}</span>`;
+      html += `<input class="prode-score-input" type="number" min="0" max="20" inputmode="numeric" placeholder="-" disabled></div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById("previewContent").innerHTML = html;
+
+  // Scroll to preview
+  document.getElementById("previewSection").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function cancelPreview() {
+  document.getElementById("previewSection").style.display = "none";
+  previewData = null;
+}
+window.cancelPreview = cancelPreview;
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ═══════════════════════════════════════════
+// SAVE fecha
+// ═══════════════════════════════════════════
+async function savePreviewData() {
+  if (!previewData) return;
+  const key = String(previewData.numero);
+
+  const payload = {
+    numero: previewData.numero,
+    active: true,
+    loaded: new Date().toISOString(),
+    groups: previewData.groups
+  };
+
+  try {
+    await _dbSet(_dbRef(db, "lima/prode/fechas/" + key), payload);
+    setMsg("saveMsg", "✓ Fecha " + key + " guardada correctamente", "ok");
+    previewData = null;
+    setTimeout(() => {
+      document.getElementById("previewSection").style.display = "none";
+      loadFechas();
+    }, 800);
+  } catch (err) {
+    setMsg("saveMsg", "Error al guardar: " + err.message, "error");
+  }
+}
+window.savePreviewData = savePreviewData;
+
+// ═══════════════════════════════════════════
+// LOAD & RENDER fechas list
+// ═══════════════════════════════════════════
+async function loadFechas() {
+  try {
+    const snap = await _dbGet(_dbRef(db, "lima/prode/fechas"));
+    const data = snap.val();
+    renderFechas(data);
+  } catch (e) {
+    console.error("Error loading fechas:", e);
+  }
+}
+
+function renderFechas(data) {
+  const container = document.getElementById("fechasList");
+  if (!data || Object.keys(data).length === 0) {
+    container.innerHTML = '<div class="fechas-empty">No hay fechas cargadas</div>';
+    return;
+  }
+
+  const sorted = Object.entries(data).sort((a, b) => Number(a[0]) - Number(b[0]));
+  let html = "";
+  for (const [key, fecha] of sorted) {
+    const totalMatches = fecha.groups
+      ? fecha.groups.reduce((s, g) => s + g.matches.length, 0) : 0;
+    const playedMatches = fecha.groups
+      ? fecha.groups.reduce((s, g) => s + g.matches.filter(m => m.homeScore != null).length, 0) : 0;
+    const loadedDate = fecha.loaded
+      ? new Date(fecha.loaded).toLocaleDateString("es-AR") : "—";
+    const isActive = fecha.active !== false;
+    const resultInfo = playedMatches > 0
+      ? ` · <span style="color:var(--win)">${playedMatches}/${totalMatches} resultados</span>` : "";
+    html += `
+      <div class="fecha-card">
+        <div class="fecha-info">
+          <div class="fecha-num">FECHA ${fecha.numero}</div>
+          <div class="fecha-meta">${totalMatches} partidos · Cargada: ${loadedDate}${resultInfo}</div>
+        </div>
+        <button class="fecha-view ${playedMatches > 0 ? 'has-results' : ''}" onclick="viewResults('${key}')" title="Ver resultados">👁️</button>
+        <button class="fecha-update" onclick="doUpdateResults('${key}')" title="Actualizar resultados">🔄</button>
+        <div class="toggle-wrap">
+          <span class="toggle-label ${isActive ? 'on' : 'off'}" id="lbl_${key}">${isActive ? 'ACTIVA' : 'INACTIVA'}</span>
+          <label class="toggle">
+            <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleFecha('${key}', this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <button class="fecha-delete" onclick="deleteFecha('${key}')" title="Eliminar">🗑️</button>
+      </div>`;
+  }
+  container.innerHTML = html;
+}
+
+async function toggleFecha(key, active) {
+  try {
+    // Read current data, update active flag
+    const snap = await _dbGet(_dbRef(db, "lima/prode/fechas/" + key));
+    const data = snap.val();
+    if (!data) return;
+    data.active = active;
+    await _dbSet(_dbRef(db, "lima/prode/fechas/" + key), data);
+    // Update label
+    const lbl = document.getElementById("lbl_" + key);
+    if (lbl) {
+      lbl.textContent = active ? "ACTIVA" : "INACTIVA";
+      lbl.className = "toggle-label " + (active ? "on" : "off");
+    }
+  } catch (e) { console.error("Error toggling fecha:", e); }
+}
+window.toggleFecha = toggleFecha;
+
+async function deleteFecha(key) {
+  if (!confirm(`¿Eliminar Fecha ${key}?`)) return;
+  try {
+    await _dbRemove(_dbRef(db, "lima/prode/fechas/" + key));
+    await loadFechas();
+  } catch (e) { console.error("Error deleting fecha:", e); }
+}
+window.deleteFecha = deleteFecha;
+
+// ═══════════════════════════════════════════
+// ACTUALIZAR RESULTADOS
+// ═══════════════════════════════════════════
+let pendingResults = null; // { key, fecha (stored), freshData (parsed) }
+
+async function doUpdateResults(key) {
+  const url = document.getElementById("sourceUrl").value.trim();
+  if (!url) { alert("Ingresá la URL de GEBA en el campo superior"); return; }
+
+  // Read stored fecha
+  const snap = await _dbGet(_dbRef(db, "lima/prode/fechas/" + key));
+  const stored = snap.val();
+  if (!stored) { alert("Fecha no encontrada"); return; }
+
+  const fechaNum = stored.numero;
+
+  // Disable all update buttons
+  document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = true; b.textContent = "⏳"; });
+  setMsg("resultsMsg", "", "");
+
+  try {
+    const html = await fetchHtml(url);
+    const freshData = parseGEBA(html, fechaNum);
+
+    pendingResults = { key, stored, freshData };
+    showResultsPreview(freshData, stored);
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = false; b.textContent = "🔄"; });
+  }
+}
+window.doUpdateResults = doUpdateResults;
+
+function showResultsPreview(freshData, stored) {
+  const section = document.getElementById("resultsSection");
+  section.style.display = "block";
+  document.getElementById("resultsNum").textContent = freshData.numero;
+
+  let totalMatches = 0, playedCount = 0;
+
+  let html = "";
+  for (const group of freshData.groups) {
+    html += `<div class="prode-date-group">`;
+    html += `<div class="prode-date-label">📅 FECHA ${freshData.numero} — ${esc(group.date)}</div>`;
+    html += `<div class="prode-grid">`;
+    for (const m of group.matches) {
+      totalMatches++;
+      const played = m.homeScore != null && m.awayScore != null;
+      if (played) playedCount++;
+
+      const scoreClass = played ? "result-played" : "result-pending";
+      const scoreText = played ? `${m.homeScore} - ${m.awayScore}` : "vs";
+
+      html += `<div class="prode-match">`;
+      html += `<div class="prode-team home"><span class="prode-team-name">${esc(m.home)}</span></div>`;
+      html += `<span class="result-score-display ${scoreClass}">${scoreText}</span>`;
+      html += `<div class="prode-team away"><span class="prode-team-name">${esc(m.away)}</span></div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById("resultsContent").innerHTML = html;
+  document.getElementById("resultsSummary").innerHTML =
+    `<strong>${playedCount}</strong> de ${totalMatches} partidos con resultado`;
+
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function saveResults() {
+  if (!pendingResults) return;
+  const { key, stored, freshData } = pendingResults;
+
+  // Merge scores into stored fecha data
+  for (const freshGroup of freshData.groups) {
+    for (const freshMatch of freshGroup.matches) {
+      if (freshMatch.homeScore == null) continue;
+      // Find matching group+match in stored data by team names
+      for (const storedGroup of stored.groups) {
+        for (const storedMatch of storedGroup.matches) {
+          if (storedMatch.home === freshMatch.home && storedMatch.away === freshMatch.away) {
+            storedMatch.homeScore = freshMatch.homeScore;
+            storedMatch.awayScore = freshMatch.awayScore;
+          }
+        }
+      }
+    }
+  }
+
+  stored.resultsUpdated = new Date().toISOString();
+
+  try {
+    await _dbSet(_dbRef(db, "lima/prode/fechas/" + key), stored);
+    setMsg("resultsMsg", "✓ Resultados guardados correctamente", "ok");
+    pendingResults = null;
+    setTimeout(() => {
+      document.getElementById("resultsSection").style.display = "none";
+      loadFechas();
+    }, 800);
+  } catch (err) {
+    setMsg("resultsMsg", "Error al guardar: " + err.message, "error");
+  }
+}
+window.saveResults = saveResults;
+
+function cancelResults() {
+  document.getElementById("resultsSection").style.display = "none";
+  pendingResults = null;
+}
+window.cancelResults = cancelResults;
+
+// ═══════════════════════════════════════════
+// VER RESULTADOS (read-only, from stored data)
+// ═══════════════════════════════════════════
+async function viewResults(key) {
+  const snap = await _dbGet(_dbRef(db, "lima/prode/fechas/" + key));
+  const fecha = snap.val();
+  if (!fecha || !fecha.groups) { alert("Fecha sin datos"); return; }
+
+  const section = document.getElementById("viewResultsSection");
+  section.style.display = "block";
+  document.getElementById("viewResultsNum").textContent = fecha.numero;
+
+  let totalMatches = 0, playedCount = 0;
+  let html = "";
+  for (const group of fecha.groups) {
+    html += `<div class="prode-date-group">`;
+    html += `<div class="prode-date-label">📅 FECHA ${fecha.numero} — ${esc(group.date)}</div>`;
+    html += `<div class="prode-grid">`;
+    for (const m of group.matches) {
+      totalMatches++;
+      const played = m.homeScore != null && m.awayScore != null;
+      if (played) playedCount++;
+      const scoreClass = played ? "result-played" : "result-pending";
+      const scoreText = played ? `${m.homeScore} - ${m.awayScore}` : "vs";
+      html += `<div class="prode-match">`;
+      html += `<div class="prode-team home"><span class="prode-team-name">${esc(m.home)}</span></div>`;
+      html += `<span class="result-score-display ${scoreClass}">${scoreText}</span>`;
+      html += `<div class="prode-team away"><span class="prode-team-name">${esc(m.away)}</span></div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById("viewResultsContent").innerHTML = html;
+
+  const updatedInfo = fecha.resultsUpdated
+    ? ` · Última actualización: ${new Date(fecha.resultsUpdated).toLocaleString("es-AR")}` : "";
+  document.getElementById("viewResultsSummary").innerHTML = playedCount > 0
+    ? `<strong>${playedCount}</strong> de ${totalMatches} partidos con resultado${updatedInfo}`
+    : `Sin resultados cargados aún`;
+
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+window.viewResults = viewResults;
+
+function closeViewResults() {
+  document.getElementById("viewResultsSection").style.display = "none";
+}
+window.closeViewResults = closeViewResults;
+
+// ── Init ──
+loadFechas();
+</script>
+</body>
+</html>

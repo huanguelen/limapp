@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1d3a">
+  <title>Lima FC · Usuarios</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+  <style>
+    :root {
+      --bg:          #0b0e1f;
+      --surface:     #111426;
+      --surface-2:   #161a30;
+      --surface-3:   #1c2140;
+      --border:      #1e2444;
+      --border-2:    #252c50;
+      --blue:        #2E3092;
+      --cyan:        #00AEEF;
+      --cyan-dim:    rgba(0,174,239,0.15);
+      --cyan-glow:   rgba(0,174,239,0.35);
+      --text:        #edf0ff;
+      --text-2:      #8a93bc;
+      --text-3:      #6b7599;
+      --win:         #4ade80;
+      --draw:        #facc15;
+      --loss:        #f87171;
+      --safe-top:    env(safe-area-inset-top, 0px);
+      --safe-bot:    env(safe-area-inset-bottom, 0px);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Barlow Condensed", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      padding: var(--safe-top) 0 var(--safe-bot);
+    }
+
+    /* ── HEADER ── */
+    header {
+      position: relative;
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 16px;
+      padding-top: calc(10px + env(safe-area-inset-top, 0px));
+      min-height: 56px;
+      background: linear-gradient(180deg, #070a18 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    header::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% -10%, rgba(0,174,239,.18) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    header::after {
+      content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent); opacity: .5;
+    }
+    .header-back {
+      background: none; border: none; color: var(--cyan);
+      font-size: 22px; cursor: pointer; padding: 8px;
+      min-width: 44px; min-height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1; transition: transform .15s; text-decoration: none;
+    }
+    .header-back:active { transform: scale(.9); }
+    .header-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 4px; color: #fff;
+      text-shadow: 0 0 20px rgba(0,174,239,.2);
+      position: relative; z-index: 1;
+    }
+
+    /* ── CONTENT ── */
+    .admin-content {
+      max-width: 600px; margin: 0 auto; padding: 16px;
+    }
+    .admin-header {
+      font-family: "Bebas Neue", sans-serif; font-size: 28px;
+      color: var(--cyan); letter-spacing: 4px; text-align: center; margin-bottom: 6px;
+    }
+    .admin-sub {
+      font-size: 11px; color: var(--text-3); letter-spacing: 1.5px;
+      text-align: center; margin-bottom: 22px; font-family: "Inter", system-ui, sans-serif;
+    }
+
+    /* ── SECTION CARD ── */
+    .section-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px; margin-bottom: 16px;
+    }
+    .section-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 3px; color: var(--cyan); margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── FORM ── */
+    .admin-field {
+      width: 100%; padding: 12px 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 14px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; margin-bottom: 10px; transition: border-color .2s;
+    }
+    .admin-field::placeholder { color: var(--text-3); }
+    .admin-field:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.2); }
+    .admin-btn {
+      padding: 12px 24px;
+      font-family: "Bebas Neue", sans-serif; font-size: 15px;
+      letter-spacing: 3px; color: #fff;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 1px solid rgba(0,174,239,.4); border-radius: 8px;
+      cursor: pointer; transition: all .2s;
+    }
+    .admin-btn:active { transform: scale(.97); }
+    .admin-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .admin-btn.success {
+      background: linear-gradient(135deg, #166534, #14532d);
+      border-color: rgba(74,222,128,.4);
+    }
+    .admin-btn.danger {
+      background: linear-gradient(135deg, #7f1d1d, #451a1a);
+      border-color: rgba(248,113,113,.3);
+    }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── STATUS / MESSAGES ── */
+    .admin-msg {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      margin-top: 10px; min-height: 18px; letter-spacing: .3px;
+    }
+    .admin-msg.error { color: var(--loss); }
+    .admin-msg.ok { color: var(--win); }
+    .admin-msg.info { color: var(--draw); }
+
+    .mock-badge {
+      display: inline-block; padding: 3px 10px;
+      font-family: "Bebas Neue", sans-serif; font-size: 11px;
+      letter-spacing: 2px; border-radius: 6px;
+      background: rgba(250,204,21,.12); color: var(--draw);
+      border: 1px solid rgba(250,204,21,.25); margin-left: 8px;
+    }
+
+    /* ── USERS LIST ── */
+    .user-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px;
+    }
+    .user-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 2px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      color: var(--cyan); flex-shrink: 0; letter-spacing: 1px;
+    }
+    .user-info { flex: 1; min-width: 0; }
+    .user-email {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text); white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .user-meta {
+      font-family: "Inter", system-ui, sans-serif; font-size: 11px;
+      color: var(--text-3); margin-top: 2px;
+    }
+    .user-status {
+      font-family: "Bebas Neue", sans-serif; font-size: 10px;
+      letter-spacing: 2px; padding: 3px 8px; border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .user-status.active {
+      background: rgba(74,222,128,.1); color: var(--win);
+      border: 1px solid rgba(74,222,128,.2);
+    }
+    .user-status.pending {
+      background: rgba(250,204,21,.1); color: var(--draw);
+      border: 1px solid rgba(250,204,21,.2);
+    }
+    .users-empty {
+      text-align: center; color: var(--text-3);
+      font-size: 13px; padding: 20px; letter-spacing: 1px;
+      font-family: "Inter", system-ui, sans-serif;
+    }
+    .users-count {
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+      color: var(--text-3); letter-spacing: .5px; margin-bottom: 12px;
+    }
+    .users-count strong { color: var(--cyan); }
+
+    /* ── INVITE MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .modal-overlay.visible { opacity: 1; pointer-events: all; }
+    .modal-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px; width: 100%; max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 40px rgba(0,174,239,.08);
+    }
+    .modal-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 3px; color: var(--cyan); margin-bottom: 16px;
+      text-align: center;
+    }
+    .modal-text {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-2); line-height: 1.5; margin-bottom: 14px; text-align: center;
+    }
+
+    /* ── EMAIL PREVIEW ── */
+    .email-preview {
+      background: #ffffff; border-radius: 10px; padding: 0;
+      margin: 14px 0; overflow: hidden; border: 1px solid var(--border);
+    }
+    .email-preview-header {
+      background: linear-gradient(135deg, #0b0e1f, #1c2140);
+      padding: 20px; text-align: center;
+    }
+    .email-preview-header h2 {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      color: #00AEEF; letter-spacing: 5px; margin: 0;
+    }
+    .email-preview-header p {
+      font-family: "Inter", sans-serif; font-size: 10px;
+      color: #8a93bc; letter-spacing: 2px; margin: 4px 0 0;
+    }
+    .email-preview-body {
+      padding: 24px 20px; color: #1a1a2e;
+      font-family: "Inter", sans-serif; font-size: 13px; line-height: 1.6;
+    }
+    .email-preview-body h3 {
+      font-family: "Bebas Neue", sans-serif; font-size: 18px;
+      color: #2E3092; letter-spacing: 2px; margin-bottom: 12px;
+    }
+    .email-preview-body p { margin-bottom: 10px; color: #444; }
+    .email-preview-cta {
+      display: block; width: fit-content; margin: 18px auto 10px;
+      padding: 12px 32px; background: linear-gradient(135deg, #2E3092, #00AEEF);
+      color: #fff !important; font-family: "Bebas Neue", sans-serif;
+      font-size: 15px; letter-spacing: 3px; text-decoration: none;
+      border-radius: 8px; text-align: center;
+    }
+    .email-preview-footer {
+      background: #f0f0f5; padding: 14px; text-align: center;
+      font-family: "Inter", sans-serif; font-size: 10px; color: #999;
+    }
+
+    /* ── CONFIRM DIALOG ── */
+    .confirm-actions {
+      display: flex; gap: 10px; margin-top: 16px; justify-content: center;
+    }
+
+    /* ── LINK COPIED TOAST ── */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); border: 1px solid var(--win);
+      color: var(--win); padding: 10px 20px; border-radius: 8px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.4);
+      opacity: 0; transition: all .3s; pointer-events: none; z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── SPINNER ── */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid var(--border-2); border-top-color: var(--cyan);
+      border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <a href="/prode-admin.html" class="header-back" aria-label="Volver">←</a>
+  <span class="header-title">LIMA FC</span>
+</header>
+
+<div class="admin-content">
+  <div class="admin-header">👥 USUARIOS</div>
+  <div class="admin-sub">GESTIÓN DE USUARIOS E INVITACIONES
+    <span class="mock-badge" id="mockBadge" style="display:none">MOCK MODE</span>
+  </div>
+
+  <!-- ═══ INVITE ═══ -->
+  <div class="section-card">
+    <div class="section-title">✉️ INVITAR USUARIO</div>
+    <div style="display:flex; gap:10px; align-items:flex-start">
+      <input class="admin-field" type="email" id="inviteEmail"
+        placeholder="Email del invitado" style="margin-bottom:0; flex:1">
+      <button class="admin-btn" id="btnInvite" onclick="handleInvite()">INVITAR</button>
+    </div>
+    <div class="admin-msg" id="inviteMsg"></div>
+  </div>
+
+  <!-- ═══ USERS LIST ═══ -->
+  <div class="section-card">
+    <div class="section-title">📋 USUARIOS REGISTRADOS</div>
+    <div id="usersCount" class="users-count"></div>
+    <div id="usersList">
+      <div class="users-empty">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Confirm Resend ═══ -->
+<div class="modal-overlay" id="modalResend">
+  <div class="modal-card">
+    <div class="modal-title">⚠️ USUARIO YA INGRESADO</div>
+    <div class="modal-text">
+      El email <strong id="resendEmail"></strong> ya está registrado en el sistema.
+    </div>
+    <div class="modal-text">¿Desea reenviar la invitación?</div>
+    <div class="confirm-actions">
+      <button class="admin-btn success" onclick="confirmResend()">SÍ, REENVIAR</button>
+      <button class="admin-btn danger" onclick="closeModal('modalResend')">NO, CANCELAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: Email Preview ═══ -->
+<div class="modal-overlay" id="modalEmailPreview">
+  <div class="modal-card" style="max-width:440px">
+    <div class="modal-title" id="emailPreviewTitle">📧 INVITACIÓN ENVIADA</div>
+    <div class="modal-text" id="emailPreviewSubtitle" style="margin-bottom:6px">Preview del email enviado:</div>
+    <div class="email-preview" id="emailPreviewContent"></div>
+    <div id="emailPreviewLink" style="display:none;margin:10px 0">
+      <div style="font-family:'Inter',sans-serif;font-size:11px;color:var(--text-3);margin-bottom:6px;text-align:center">Link de registro (copiado al portapapeles):</div>
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:11px;color:var(--cyan);word-break:break-all;cursor:pointer" id="registroLinkDisplay" onclick="copyLink()"></div>
+    </div>
+    <div class="confirm-actions">
+      <button class="admin-btn" onclick="closeModal('modalEmailPreview')">CERRAR</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+import { USE_MOCK, firebaseConfig, emailjsConfig } from "./config.js";
+const USERS_KEY = "limaUsers";
+
+// ── EmailJS ──
+const EMAILJS_ENABLED = !!(emailjsConfig.publicKey && emailjsConfig.serviceId && emailjsConfig.templateId);
+if (EMAILJS_ENABLED) {
+  emailjs.init(emailjsConfig.publicKey);
+}
+
+let _dbSet, _dbGet, _dbRemove, _dbRef, db;
+
+if (!USE_MOCK) {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getDatabase(fbApp);
+  _dbSet = set;
+  _dbGet = get;
+  _dbRemove = remove;
+  _dbRef = ref;
+} else {
+  document.getElementById("mockBadge").style.display = "";
+  db = null;
+  _dbRef = (d, path) => path;
+  _dbSet = (path, data) => {
+    const store = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+    const key = path.split("/").pop();
+    store[key] = data;
+    localStorage.setItem(USERS_KEY, JSON.stringify(store));
+    return Promise.resolve();
+  };
+  _dbGet = (path) => {
+    const store = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+    if (path === "lima/usuarios") {
+      return Promise.resolve({ val: () => Object.keys(store).length ? store : null });
+    }
+    const key = path.split("/").pop();
+    return Promise.resolve({ val: () => store[key] || null });
+  };
+  _dbRemove = (path) => {
+    const store = JSON.parse(localStorage.getItem(USERS_KEY) || "{}");
+    const key = path.split("/").pop();
+    delete store[key];
+    localStorage.setItem(USERS_KEY, JSON.stringify(store));
+    return Promise.resolve();
+  };
+}
+
+// ── Helpers ──
+function setMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.className = "admin-msg " + type;
+  el.innerHTML = text;
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function emailToKey(email) {
+  return email.toLowerCase().replace(/[^a-z0-9]/g, "_");
+}
+
+function getInitials(email) {
+  const name = email.split("@")[0];
+  return name.substring(0, 2).toUpperCase();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add("visible");
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove("visible");
+}
+window.closeModal = closeModal;
+
+// ═══════════════════════════════════════════
+// LOAD & RENDER USERS
+// ═══════════════════════════════════════════
+async function loadUsers() {
+  try {
+    const snap = await _dbGet(_dbRef(db, "lima/usuarios"));
+    const data = snap.val();
+    renderUsers(data);
+  } catch (e) {
+    console.error("Error loading users:", e);
+  }
+}
+
+function renderUsers(data) {
+  const container = document.getElementById("usersList");
+  const countEl = document.getElementById("usersCount");
+
+  if (!data || Object.keys(data).length === 0) {
+    container.innerHTML = '<div class="users-empty">No hay usuarios registrados</div>';
+    countEl.innerHTML = "";
+    return;
+  }
+
+  const entries = Object.entries(data).sort((a, b) =>
+    (a[1].email || "").localeCompare(b[1].email || "")
+  );
+
+  const activeCount = entries.filter(([, u]) => u.status === "active").length;
+  const pendingCount = entries.filter(([, u]) => u.status === "pending").length;
+  countEl.innerHTML = `<strong>${entries.length}</strong> usuarios · ${activeCount} activos · ${pendingCount} pendientes`;
+
+  let html = "";
+  for (const [key, user] of entries) {
+    const isActive = user.status === "active";
+    const statusText = isActive ? "ACTIVO" : "PENDIENTE";
+    const statusClass = isActive ? "active" : "pending";
+    const dateStr = user.creado
+      ? new Date(user.creado).toLocaleDateString("es-AR") : "—";
+    const inviteInfo = user.invitado
+      ? `Invitado: ${new Date(user.invitado).toLocaleDateString("es-AR")}` : "";
+    const registeredInfo = isActive && user.registrado
+      ? `Registrado: ${new Date(user.registrado).toLocaleDateString("es-AR")}` : "";
+    const metaLine = [inviteInfo, registeredInfo].filter(Boolean).join(" · ") || `Creado: ${dateStr}`;
+
+    html += `
+      <div class="user-card">
+        <div class="user-avatar">${getInitials(user.email || key)}</div>
+        <div class="user-info">
+          <div class="user-email">${esc(user.email || key)}</div>
+          <div class="user-meta">${metaLine}</div>
+        </div>
+        <span class="user-status ${statusClass}">${statusText}</span>
+      </div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// INVITE FLOW
+// ═══════════════════════════════════════════
+let pendingInviteEmail = "";
+
+async function handleInvite() {
+  const email = document.getElementById("inviteEmail").value.trim().toLowerCase();
+  if (!email) { setMsg("inviteMsg", "Ingresá un email", "error"); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setMsg("inviteMsg", "Email inválido", "error"); return;
+  }
+
+  setMsg("inviteMsg", "", "");
+
+  // Check if user already exists
+  const snap = await _dbGet(_dbRef(db, "lima/usuarios"));
+  const users = snap.val() || {};
+  const existing = Object.values(users).find(u => u.email === email);
+
+  if (existing) {
+    // User already registered
+    pendingInviteEmail = email;
+    document.getElementById("resendEmail").textContent = email;
+    openModal("modalResend");
+    return;
+  }
+
+  // New user — send invite
+  await sendInvite(email, false);
+}
+window.handleInvite = handleInvite;
+
+async function confirmResend() {
+  closeModal("modalResend");
+  if (pendingInviteEmail) {
+    await sendInvite(pendingInviteEmail, true);
+  }
+}
+window.confirmResend = confirmResend;
+
+let lastRegistroUrl = "";
+
+async function sendInvite(email, isResend) {
+  const key = emailToKey(email);
+  const token = btoa(email + "|" + Date.now()).replace(/=/g, "");
+  const registroUrl = `${location.origin}/registro.html?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
+  lastRegistroUrl = registroUrl;
+
+  // Save/update user in DB
+  const snap = await _dbGet(_dbRef(db, "lima/usuarios/" + key));
+  const existing = snap.val();
+
+  const userData = existing || { email, creado: new Date().toISOString() };
+  userData.status = userData.status === "active" ? "active" : "pending";
+  userData.invitado = new Date().toISOString();
+  userData.token = token;
+
+  await _dbSet(_dbRef(db, "lima/usuarios/" + key), userData);
+
+  // Build email HTML
+  const emailHtml = buildEmailHtml(email, registroUrl);
+  let emailSent = false;
+
+  // Try sending via EmailJS
+  if (EMAILJS_ENABLED) {
+    try {
+      setMsg("inviteMsg", '<span class="spinner"></span>Enviando email...', "info");
+      await emailjs.send(emailjsConfig.serviceId, emailjsConfig.templateId, {
+        to_email: email,
+        to_name: email.split("@")[0],
+        registro_url: registroUrl,
+        message_html: buildFullEmailHtml(email, registroUrl)
+      });
+      emailSent = true;
+    } catch (err) {
+      console.error("EmailJS error:", err);
+      setMsg("inviteMsg", "⚠️ Error al enviar email. Se copió el link.", "error");
+    }
+  }
+
+  // Show preview modal
+  document.getElementById("emailPreviewContent").innerHTML = emailHtml;
+  if (emailSent) {
+    document.getElementById("emailPreviewTitle").textContent = "📧 EMAIL ENVIADO";
+    document.getElementById("emailPreviewSubtitle").textContent = `Email enviado a ${email}:`;
+    document.getElementById("emailPreviewLink").style.display = "none";
+  } else {
+    document.getElementById("emailPreviewTitle").textContent = "📋 LINK DE REGISTRO";
+    document.getElementById("emailPreviewSubtitle").textContent = "El email no se pudo enviar automáticamente. Copiá el link y envialo manualmente:";
+    document.getElementById("emailPreviewLink").style.display = "";
+    document.getElementById("registroLinkDisplay").textContent = registroUrl;
+    // Auto-copy to clipboard
+    try {
+      await navigator.clipboard.writeText(registroUrl);
+      showToast("✓ Link copiado al portapapeles");
+    } catch (e) { /* clipboard may fail without user gesture */ }
+  }
+  openModal("modalEmailPreview");
+
+  const label = isResend ? "Invitación reenviada" : "Invitación enviada";
+  if (emailSent) {
+    setMsg("inviteMsg", `✓ ${label} a ${esc(email)}`, "ok");
+  } else if (!document.getElementById("inviteMsg").innerHTML.includes("Error")) {
+    setMsg("inviteMsg", `✓ ${label} — link copiado`, "ok");
+  }
+  document.getElementById("inviteEmail").value = "";
+  await loadUsers();
+}
+
+function copyLink() {
+  navigator.clipboard.writeText(lastRegistroUrl).then(() => {
+    showToast("✓ Link copiado al portapapeles");
+  });
+}
+window.copyLink = copyLink;
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+function buildEmailHtml(email, registroUrl) {
+  return `
+    <div class="email-preview-header">
+      <h2>LIMA FC</h2>
+      <p>SITIO OFICIAL</p>
+    </div>
+    <div class="email-preview-body">
+      <h3>¡BIENVENIDO AL PRODE!</h3>
+      <p>Hola <strong>${esc(email.split("@")[0])}</strong>,</p>
+      <p>Has sido invitado a formar parte de <strong>Lima FC Oficial</strong>, 
+         la plataforma donde podés seguir las formaciones, cargar tus pronósticos 
+         del Prode y competir en el ranking con el resto del equipo.</p>
+      <p>Para completar tu registro, hacé clic en el siguiente botón:</p>
+      <a class="email-preview-cta" href="${esc(registroUrl)}">COMPLETAR REGISTRO</a>
+      <p style="font-size:11px;color:#888;text-align:center;margin-top:12px">
+        Si no esperabas esta invitación, podés ignorar este mensaje.
+      </p>
+    </div>
+    <div class="email-preview-footer">
+      Lima FC &copy; 2026 · GEBA Fútbol Mayores
+    </div>`;
+}
+
+// Full standalone HTML for EmailJS template (inline styles for email clients)
+function buildFullEmailHtml(email, registroUrl) {
+  const name = esc(email.split("@")[0]);
+  return `
+<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f8;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:20px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1)">
+  <tr><td style="background:linear-gradient(135deg,#0b0e1f,#1c2140);padding:28px 20px;text-align:center">
+    <h1 style="margin:0;font-size:32px;letter-spacing:8px;color:#ffffff">LIMA FC</h1>
+    <p style="margin:4px 0 0;font-size:10px;letter-spacing:3px;color:#8a93bc">SITIO OFICIAL</p>
+  </td></tr>
+  <tr><td style="padding:32px 28px">
+    <h2 style="margin:0 0 16px;font-size:20px;letter-spacing:2px;color:#2E3092">&iexcl;BIENVENIDO AL PRODE!</h2>
+    <p style="margin:0 0 12px;font-size:14px;color:#444;line-height:1.6">Hola <strong>${name}</strong>,</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#444;line-height:1.6">Has sido invitado a formar parte de <strong>Lima FC Oficial</strong>, la plataforma donde pod&eacute;s seguir las formaciones, cargar tus pron&oacute;sticos del Prode y competir en el ranking con el resto del equipo.</p>
+    <p style="margin:0 0 20px;font-size:14px;color:#444;line-height:1.6">Para completar tu registro, hac&eacute; clic en el siguiente bot&oacute;n:</p>
+    <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <a href="${esc(registroUrl)}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#2E3092,#00AEEF);color:#ffffff;font-size:16px;letter-spacing:3px;text-decoration:none;border-radius:8px;font-weight:bold">COMPLETAR REGISTRO</a>
+    </td></tr></table>
+    <p style="margin:22px 0 0;font-size:11px;color:#999;text-align:center;line-height:1.5">Si no esperabas esta invitaci&oacute;n, pod&eacute;s ignorar este mensaje.</p>
+  </td></tr>
+  <tr><td style="background:#f0f0f5;padding:16px;text-align:center;font-size:11px;color:#999">
+    Lima FC &copy; 2026 &middot; GEBA F&uacute;tbol Mayores
+  </td></tr>
+</table>
+</body></html>`;
+}
+
+// ── Init ──
+loadUsers();
+</script>
+</body>
+</html>
