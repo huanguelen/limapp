@@ -1104,7 +1104,14 @@ async function calculateScores() {
       if (u.uid) uidToEmail[u.uid] = u.email || u.nombre || k;
     }
     for (const uid of Object.keys(existingScoring)) {
-      existingScoring[uid].email = uidToEmail[uid] || uid.substring(0, 8) + "...";
+      // Try usuarios first, then predictions/_email, then keep existing
+      if (uidToEmail[uid]) {
+        existingScoring[uid].email = uidToEmail[uid];
+      } else if (allPredictions[uid] && allPredictions[uid]._email) {
+        existingScoring[uid].email = allPredictions[uid]._email;
+      } else if (!existingScoring[uid].email) {
+        existingScoring[uid].email = uid.substring(0, 8) + "...";
+      }
     }
 
     // 6. Save merged scoring
@@ -1132,8 +1139,8 @@ async function calculateScores() {
     summaryHtml += `</table>`;
     msgEl.innerHTML = summaryHtml;
 
-    // Update the existing scoring table
-    await loadExistingScoring(fechaKey);
+    // Hide the existing scoring table (already showing updated data in calcResultMsg)
+    document.getElementById("existingScoringTable").style.display = "none";
 
   } catch (e) {
     console.error("Error calculating scores:", e);

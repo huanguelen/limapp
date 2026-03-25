@@ -859,6 +859,8 @@ async function doSaveFecha(fechaKey) {
 
   try {
     await _dbSet(_dbRef(db, `lima/prode/predictions/${currentUser.uid}/${fechaKey}`), data);
+    // Also save email for scoring lookup
+    await _dbSet(_dbRef(db, `lima/prode/predictions/${currentUser.uid}/_email`), currentUser.email);
     if (msgEl) { msgEl.textContent = "✓ Guardado correctamente"; msgEl.className = "prode-save-msg ok"; }
     btn.textContent = "✓ GUARDADO";
     btn.classList.add("saved");
