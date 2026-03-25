@@ -402,8 +402,7 @@ async function loadRanking() {
     const ranking = [];
     let emojiIdx = 0;
     for (const [uid, data] of Object.entries(scoringData)) {
-      const rawName = data.email ? formatName(data.email) : uid.substring(0, 12) + "...";
-      const name = rawName || uid.substring(0, 12) + "...";
+      const name = data.nombre || formatName(data.email) || uid.substring(0, 12) + "...";
       const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
       emojiIdx++;
 

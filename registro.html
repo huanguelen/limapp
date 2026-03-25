@@ -181,6 +181,11 @@
         <input class="form-field" type="email" id="regEmail" disabled>
       </div>
       <div class="form-group">
+        <label class="form-label">NOMBRE COMPLETO</label>
+        <input class="form-field" type="text" id="regNombre"
+          placeholder="Ej: Pablo Martínez" required autocomplete="name" maxlength="60">
+      </div>
+      <div class="form-group">
         <label class="form-label">CONTRASEÑA</label>
         <input class="form-field" type="password" id="regPass"
           placeholder="Mínimo 6 caracteres" minlength="6" required autocomplete="new-password">
@@ -316,14 +321,21 @@ async function init() {
 
 // ── Form submit ──
 document.getElementById("registerForm").addEventListener("submit", async () => {
+  const nombre = document.getElementById("regNombre").value.trim();
   const pass = document.getElementById("regPass").value;
   const passConfirm = document.getElementById("regPassConfirm").value;
   setMsg("", "");
 
   // Clear previous error styling
+  document.getElementById("regNombre").classList.remove("has-error");
   document.getElementById("regPass").classList.remove("has-error");
   document.getElementById("regPassConfirm").classList.remove("has-error");
 
+  if (!nombre || nombre.length < 2) {
+    setMsg("Ingresá tu nombre completo", "error");
+    document.getElementById("regNombre").classList.add("has-error");
+    return;
+  }
   if (!pass || pass.length < 6) {
     setMsg("La contraseña debe tener al menos 6 caracteres", "error");
     document.getElementById("regPass").classList.add("has-error");
@@ -349,6 +361,7 @@ document.getElementById("registerForm").addEventListener("submit", async () => {
     const userData = snap.val() || {};
 
     userData.email = paramEmail;
+    userData.nombre = nombre;
     userData.status = "active";
     userData.registrado = new Date().toISOString();
     userData.uid = cred.user.uid;

@@ -984,6 +984,7 @@ async function loadExistingScoring(fechaKey) {
       .filter(([uid, d]) => d.fechas && d.fechas[fechaKey])
       .map(([uid, d]) => ({
         email: d.email || uid.substring(0, 8) + "...",
+        nombre: d.nombre || null,
         puntos: d.fechas[fechaKey].puntos,
         aciertos: d.fechas[fechaKey].aciertos,
         exactos: d.fechas[fechaKey].exactos,
@@ -999,7 +1000,7 @@ async function loadExistingScoring(fechaKey) {
     entries.forEach((e, i) => {
       html += `<tr style="border-bottom:1px solid var(--border)">`;
       html += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
-      html += `<td style="padding:6px">${esc(e.email)}</td>`;
+      html += `<td style="padding:6px">${esc(e.nombre || e.email)}</td>`;
       html += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${e.puntos}</td>`;
       html += `<td style="padding:6px;text-align:center">${e.aciertos}</td>`;
       html += `<td style="padding:6px;text-align:center;color:var(--cyan)">${e.exactos}</td>`;
@@ -1104,14 +1105,22 @@ async function calculateScores() {
       if (u.uid) uidToEmail[u.uid] = u.email || u.nombre || k;
     }
     for (const uid of Object.keys(existingScoring)) {
-      // Try usuarios first, then predictions/_email, then keep existing
-      if (uidToEmail[uid]) {
-        existingScoring[uid].email = uidToEmail[uid];
-      } else if (allPredictions[uid] && allPredictions[uid]._email) {
-        existingScoring[uid].email = allPredictions[uid]._email;
-      } else if (!existingScoring[uid].email) {
-        existingScoring[uid].email = uid.substring(0, 8) + "...";
+      // Try usuarios first (nombre > email), then predictions, then keep existing
+      let nombre = null, email = null;
+      if (uidToEmail[uid]) email = uidToEmail[uid];
+      // Check usuarios for nombre
+      for (const [k, u] of Object.entries(usersData)) {
+        if (u.uid === uid && u.nombre) { nombre = u.nombre; break; }
       }
+      // Check predictions for nombre/email
+      if (!nombre && allPredictions[uid] && allPredictions[uid]._nombre) {
+        nombre = allPredictions[uid]._nombre;
+      }
+      if (!email && allPredictions[uid] && allPredictions[uid]._email) {
+        email = allPredictions[uid]._email;
+      }
+      existingScoring[uid].nombre = nombre || existingScoring[uid].nombre || null;
+      existingScoring[uid].email = email || existingScoring[uid].email || uid.substring(0, 8) + "...";
     }
 
     // 6. Save merged scoring
@@ -1120,7 +1129,7 @@ async function calculateScores() {
     // 7. Show summary for this fecha
     const fechaEntries = Object.entries(existingScoring)
       .filter(([uid, d]) => d.fechas[fechaKey])
-      .map(([uid, d]) => ({ uid, email: d.email || uid.substring(0, 8) + "...", ...d.fechas[fechaKey], totalGeneral: d.total }))
+      .map(([uid, d]) => ({ uid, email: d.email || uid.substring(0, 8) + "...", nombre: d.nombre || null, ...d.fechas[fechaKey], totalGeneral: d.total }))
       .sort((a, b) => b.puntos - a.puntos);
 
     let summaryHtml = `<strong>Fecha ${fecha.numero} — Puntajes calculados y guardados</strong><br><br>`;
@@ -1129,7 +1138,7 @@ async function calculateScores() {
     fechaEntries.forEach((e, i) => {
       summaryHtml += `<tr style="border-bottom:1px solid var(--border)">`;
       summaryHtml += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
-      summaryHtml += `<td style="padding:6px">${esc(e.email)}</td>`;
+      summaryHtml += `<td style="padding:6px">${esc(e.nombre || e.email)}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center;color:var(--win);font-weight:bold">${e.puntos}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center">${e.aciertos}</td>`;
       summaryHtml += `<td style="padding:6px;text-align:center;color:var(--cyan)">${e.exactos}</td>`;
