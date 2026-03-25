@@ -322,8 +322,11 @@ function esc(s) {
 }
 
 function formatName(email) {
-  if (!email || !email.includes("@")) return email || "?";
-  return email.split("@")[0].replace(/[._]/g, " ");
+  if (!email) return "";
+  if (!email.includes("@")) return email;
+  const local = email.split("@")[0].replace(/[._]/g, " ");
+  // Capitalize first letter of each word
+  return local.replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function render(ranking) {
@@ -399,7 +402,8 @@ async function loadRanking() {
     const ranking = [];
     let emojiIdx = 0;
     for (const [uid, data] of Object.entries(scoringData)) {
-      const name = formatName(data.email) || uid.substring(0, 8) + "...";
+      const rawName = data.email ? formatName(data.email) : uid.substring(0, 12) + "...";
+      const name = rawName || uid.substring(0, 12) + "...";
       const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
       emojiIdx++;
 
