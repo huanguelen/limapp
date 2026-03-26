@@ -109,7 +109,10 @@
       width: 56px; height: 56px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 24px; margin-bottom: 8px;
-      position: relative;
+      position: relative; overflow: hidden;
+    }
+    .podium-avatar img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
     }
     .podium-slot.first .podium-avatar {
       width: 72px; height: 72px; font-size: 30px;
@@ -175,7 +178,10 @@
       width: 34px; height: 34px; border-radius: 50%;
       background: var(--surface-3); border: 2px solid var(--border-2);
       display: flex; align-items: center; justify-content: center;
-      font-size: 15px; flex-shrink: 0;
+      font-size: 15px; flex-shrink: 0; overflow: hidden;
+    }
+    .rank-avatar-sm img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
     }
     .rank-name {
       font-family: "Bebas Neue", sans-serif; font-size: 15px;
@@ -335,7 +341,7 @@ function render(ranking) {
       const s = slots[idx];
       podiumHtml += `
         <div class="podium-slot ${s.cls}">
-          <div class="podium-avatar">${r.emoji}<span class="podium-medal">${s.medal}</span></div>
+          <div class="podium-avatar">${r.avatarHtml}<span class="podium-medal">${s.medal}</span></div>
           <div class="podium-name">${esc(r.name)}</div>
           <div class="podium-points">${r.pts} pts</div>
           <div class="podium-bar"><span class="podium-rank">${s.rank}</span></div>
@@ -352,7 +358,7 @@ function render(ranking) {
     html += `
       <div class="rank-row">
         <span class="rank-pos">${i + 1}°</span>
-        <div class="rank-avatar-sm">${r.emoji}</div>
+        <div class="rank-avatar-sm">${r.avatarHtml}</div>
         <span class="rank-name">${esc(r.name)}</span>
         <span class="rank-pts">${r.pts}<span class="rank-pts-label"> PTS</span></span>
       </div>`;
@@ -374,10 +380,20 @@ async function loadRanking() {
     const fbApp = initializeApp(firebaseConfig);
     const db = getDatabase(fbApp);
 
-    // 1. Read scoring (public)
-    const scoringSnap = await get(ref(db, "lima/prode/scoring"));
+    // 1. Read scoring and users in parallel
+    const [scoringSnap, usersSnap] = await Promise.all([
+      get(ref(db, "lima/prode/scoring")),
+      get(ref(db, "lima/usuarios"))
+    ]);
     const scoringData = scoringSnap.val();
     if (!scoringData) { render([]); return; }
+    const usersData = usersSnap.val() || {};
+
+    // Build email->avatar map from usuarios
+    const avatarMap = {};
+    for (const u of Object.values(usersData)) {
+      if (u.email && u.avatar) avatarMap[u.email.toLowerCase()] = u.avatar;
+    }
 
     // 2. Build ranking array from scoring data (email is stored in scoring)
     const ranking = [];
@@ -385,6 +401,7 @@ async function loadRanking() {
     for (const [uid, data] of Object.entries(scoringData)) {
       const name = data.nombre || formatName(data.email) || uid.substring(0, 12) + "...";
       const emoji = INITIALS_EMOJI[emojiIdx % INITIALS_EMOJI.length];
+      const userAvatar = data.email ? avatarMap[data.email.toLowerCase()] : null;
       emojiIdx++;
 
       // Sum total from all fechas
@@ -397,12 +414,17 @@ async function loadRanking() {
         }
       }
 
+      const avatarHtml = userAvatar
+        ? `<img src="/images/${esc(userAvatar)}" alt="">`
+        : emoji;
+
       ranking.push({
         name,
         pts: data.total || totalPts,
         aciertos: totalAciertos,
         exactos: totalExactos,
-        emoji
+        emoji,
+        avatarHtml
       });
     }
 
