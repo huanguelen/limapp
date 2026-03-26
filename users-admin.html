@@ -338,12 +338,13 @@
 
   <!-- ═══ INVITE ═══ -->
   <div class="section-card">
-    <div class="section-title">✉️ INVITAR USUARIO</div>
+    <div class="section-title">✉️ INVITAR USUARIOS</div>
     <div style="display:flex; gap:10px; align-items:flex-start">
-      <input class="admin-field" type="email" id="inviteEmail"
-        placeholder="Email del invitado" style="margin-bottom:0; flex:1">
+      <input class="admin-field" type="text" id="inviteEmail"
+        placeholder="Email(s) separados por ;" style="margin-bottom:0; flex:1">
       <button class="admin-btn" id="btnInvite" onclick="handleInvite()">INVITAR</button>
     </div>
+    <div class="admin-msg" id="inviteProgress" style="display:none;color:var(--cyan);font-weight:600"></div>
     <div class="admin-msg" id="inviteMsg"></div>
   </div>
 
@@ -548,29 +549,77 @@ function renderUsers(data) {
 let pendingInviteEmail = "";
 
 async function handleInvite() {
-  const email = document.getElementById("inviteEmail").value.trim().toLowerCase();
-  if (!email) { setMsg("inviteMsg", "Ingresá un email", "error"); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    setMsg("inviteMsg", "Email inválido", "error"); return;
-  }
+  const raw = document.getElementById("inviteEmail").value.trim();
+  if (!raw) { setMsg("inviteMsg", "Ingresá al menos un email", "error"); return; }
 
-  setMsg("inviteMsg", "", "");
+  // Parse emails separated by ; or , 
+  const emails = raw.split(/[;,]/)
+    .map(e => e.trim().toLowerCase())
+    .filter(e => e.length > 0);
 
-  // Check if user already exists
-  const snap = await _dbGet(_dbRef(db, "lima/usuarios"));
-  const users = snap.val() || {};
-  const existing = Object.values(users).find(u => u.email === email);
+  if (emails.length === 0) { setMsg("inviteMsg", "Ingresá al menos un email", "error"); return; }
 
-  if (existing) {
-    // User already registered
-    pendingInviteEmail = email;
-    document.getElementById("resendEmail").textContent = email;
-    openModal("modalResend");
+  // Validate all emails first
+  const invalid = emails.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  if (invalid.length > 0) {
+    setMsg("inviteMsg", `Email(s) inválido(s): ${invalid.join(", ")}`, "error");
     return;
   }
 
-  // New user — send invite
-  await sendInvite(email, false);
+  // Remove duplicates
+  const unique = [...new Set(emails)];
+  const total = unique.length;
+
+  setMsg("inviteMsg", "", "");
+  const progressEl = document.getElementById("inviteProgress");
+  const btn = document.getElementById("btnInvite");
+  btn.disabled = true;
+
+  // Load users once for all checks
+  const snap = await _dbGet(_dbRef(db, "lima/usuarios"));
+  const users = snap.val() || {};
+  const allUsers = Object.values(users);
+
+  let sent = 0;
+  let skipped = 0;
+  const skippedList = [];
+
+  if (total > 1) {
+    progressEl.style.display = "";
+    progressEl.textContent = `Enviando 0 de ${total}...`;
+  }
+
+  for (let i = 0; i < unique.length; i++) {
+    const email = unique[i];
+    if (total > 1) {
+      progressEl.textContent = `Enviando ${i + 1} de ${total}...`;
+    }
+
+    const existing = allUsers.find(u => u.email === email);
+    if (existing && existing.status === "active") {
+      skipped++;
+      skippedList.push(email);
+      continue;
+    }
+
+    try {
+      await sendInvite(email, !!existing);
+      sent++;
+    } catch (e) {
+      console.error(`Error inviting ${email}:`, e);
+      skippedList.push(email);
+      skipped++;
+    }
+  }
+
+  progressEl.style.display = "none";
+  btn.disabled = false;
+  document.getElementById("inviteEmail").value = "";
+
+  let summary = `✓ ${sent} invitación${sent !== 1 ? "es" : ""} enviada${sent !== 1 ? "s" : ""}`;
+  if (skipped > 0) summary += ` · ${skipped} omitida${skipped !== 1 ? "s" : ""} (ya activos)`;
+  setMsg("inviteMsg", summary, "ok");
+  await loadUsers();
 }
 window.handleInvite = handleInvite;
 
