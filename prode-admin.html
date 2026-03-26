@@ -728,15 +728,32 @@ window.savePreviewData = savePreviewData;
 // ═══════════════════════════════════════════
 async function loadFechas() {
   try {
-    const snap = await _dbGet(_dbRef(db, "lima/prode/fechas"));
-    const data = snap.val();
-    renderFechas(data);
+    const [fechasSnap, predsSnap, usersSnap] = await Promise.all([
+      _dbGet(_dbRef(db, "lima/prode/fechas")),
+      _dbGet(_dbRef(db, "lima/prode/predictions")),
+      _dbGet(_dbRef(db, "lima/usuarios"))
+    ]);
+    const data = fechasSnap.val();
+    const preds = predsSnap.val() || {};
+    const users = usersSnap.val() || {};
+    const totalUsers = Object.values(users).filter(u => u.status === "active").length;
+
+    // Count predictions per fecha
+    const predCounts = {};
+    for (const [uid, userPreds] of Object.entries(preds)) {
+      for (const fechaKey of Object.keys(userPreds)) {
+        if (fechaKey.startsWith("_")) continue;
+        predCounts[fechaKey] = (predCounts[fechaKey] || 0) + 1;
+      }
+    }
+
+    renderFechas(data, predCounts, totalUsers);
   } catch (e) {
     console.error("Error loading fechas:", e);
   }
 }
 
-function renderFechas(data) {
+function renderFechas(data, predCounts, totalUsers) {
   const container = document.getElementById("fechasList");
   if (!data || Object.keys(data).length === 0) {
     container.innerHTML = '<div class="fechas-empty">No hay fechas cargadas</div>';
@@ -755,11 +772,13 @@ function renderFechas(data) {
     const isActive = fecha.active !== false;
     const resultInfo = playedMatches > 0
       ? ` · <span style="color:var(--win)">${playedMatches}/${totalMatches} resultados</span>` : "";
+    const predCount = predCounts[key] || 0;
+    const predInfo = ` · <span style="color:var(--cyan)">${predCount}/${totalUsers} jugaron</span>`;
     html += `
       <div class="fecha-card">
         <div class="fecha-info">
           <div class="fecha-num">FECHA ${fecha.numero}</div>
-          <div class="fecha-meta">${totalMatches} partidos · Cargada: ${loadedDate}${resultInfo}</div>
+          <div class="fecha-meta">${totalMatches} partidos · Cargada: ${loadedDate}${resultInfo}${predInfo}</div>
         </div>
         <button class="fecha-view ${playedMatches > 0 ? 'has-results' : ''}" onclick="viewResults('${key}')" title="Ver resultados">👁️</button>
         <button class="fecha-update" onclick="doUpdateResults('${key}')" title="Actualizar resultados">🔄</button>
