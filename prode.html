@@ -676,7 +676,7 @@ window.doLogout = doLogout;
 // ── Auth state listener ──
 _onAuth(auth, async (user) => {
   currentUser = user;
-  if (user) {
+  if (user && user.email) {
     document.getElementById("authOverlay").classList.add("hidden");
     document.getElementById("prodeContent").style.display = "";
     document.getElementById("appHeader").style.display = "";
@@ -685,6 +685,8 @@ _onAuth(auth, async (user) => {
     await loadActiveFechas();
     await loadAllUserPredictions();
   } else {
+    if (user) _signOutFn(auth); // sesión inválida/incompleta, forzar logout
+    currentUser = null;
     document.getElementById("authOverlay").classList.remove("hidden");
     document.getElementById("prodeContent").style.display = "none";
     document.getElementById("appHeader").style.display = "none";
