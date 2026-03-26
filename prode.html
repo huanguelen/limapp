@@ -479,7 +479,7 @@
   </div>
 </div>
 
-<header>
+<header id="appHeader" style="display:none">
   <a href="/" class="header-back" aria-label="Volver">←</a>
   <span class="header-title">LIMA FC</span>
   <a href="/prode-admin.html" style="margin-left:auto;color:var(--text-3);font-size:18px;padding:8px;text-decoration:none;position:relative;z-index:1" title="Admin Prode">⚙️</a>
@@ -500,7 +500,7 @@
 </div>
 
 <!-- ── BOTTOM NAV ── -->
-<nav class="bottom-nav">
+<nav class="bottom-nav" id="appNav" style="display:none">
   <a class="nav-tab active" href="/prode.html">
     <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
       <rect x="2" y="4" width="20" height="16" rx="2"/>
@@ -678,12 +678,16 @@ _onAuth(auth, async (user) => {
   if (user) {
     document.getElementById("authOverlay").classList.add("hidden");
     document.getElementById("prodeContent").style.display = "";
+    document.getElementById("appHeader").style.display = "";
+    document.getElementById("appNav").style.display = "";
     document.getElementById("userEmail").textContent = user.email;
     await loadActiveFechas();
     await loadAllUserPredictions();
   } else {
     document.getElementById("authOverlay").classList.remove("hidden");
     document.getElementById("prodeContent").style.display = "none";
+    document.getElementById("appHeader").style.display = "none";
+    document.getElementById("appNav").style.display = "none";
   }
 });
 
