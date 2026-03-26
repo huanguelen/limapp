@@ -522,7 +522,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
@@ -611,6 +611,7 @@ let _signIn, _signOutFn, _onAuth, _dbSet, _dbGet, _dbRef;
 if (!USE_MOCK) {
   fbApp = initializeApp(firebaseConfig);
   auth = getAuth(fbApp);
+  await setPersistence(auth, browserSessionPersistence);
   db = getDatabase(fbApp);
   _signIn = signInWithEmailAndPassword;
   _signOutFn = signOut;
