@@ -196,6 +196,95 @@
     }
     .users-count strong { color: var(--cyan); }
 
+    /* ── EXPANDED USER CARD ── */
+    .user-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      margin-bottom: 8px; cursor: pointer; transition: all .2s;
+    }
+    .user-card:active { transform: scale(.99); }
+    .user-card.expanded {
+      flex-wrap: wrap; cursor: default;
+      border-color: rgba(0,174,239,.3);
+    }
+    .user-card-main {
+      display: flex; align-items: center; gap: 12px;
+      flex: 1; min-width: 0;
+    }
+    .user-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 2px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      color: var(--cyan); flex-shrink: 0; letter-spacing: 1px;
+      overflow: hidden; position: relative;
+    }
+    .user-avatar img {
+      width: 100%; height: 100%; object-fit: cover;
+      border-radius: 50%;
+    }
+    .user-details {
+      width: 100%; padding: 10px 0 4px;
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+      display: none;
+    }
+    .user-card.expanded .user-details { display: block; }
+    .user-detail-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 0;
+      font-family: "Inter", system-ui, sans-serif; font-size: 12px;
+    }
+    .user-detail-label {
+      color: var(--text-3); min-width: 80px;
+      font-family: "Bebas Neue", sans-serif; font-size: 11px;
+      letter-spacing: 2px;
+    }
+    .user-detail-value {
+      color: var(--text); flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .user-nombre {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 1.5px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .user-avatar-btn {
+      background: none; border: 1px solid var(--border-2);
+      color: var(--cyan); font-family: "Bebas Neue", sans-serif;
+      font-size: 10px; letter-spacing: 2px;
+      padding: 4px 10px; border-radius: 6px;
+      cursor: pointer; transition: all .15s;
+    }
+    .user-avatar-btn:active { transform: scale(.95); }
+
+    /* ── AVATAR PICKER ── */
+    .avatar-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr);
+      gap: 8px; margin: 14px 0;
+    }
+    @media (min-width: 420px) {
+      .avatar-grid { grid-template-columns: repeat(6, 1fr); }
+    }
+    .avatar-option {
+      width: 100%; aspect-ratio: 1; border-radius: 50%;
+      overflow: hidden; cursor: pointer; border: 2px solid var(--border-2);
+      transition: all .2s; position: relative;
+    }
+    .avatar-option:hover, .avatar-option.selected {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0,174,239,.3);
+    }
+    .avatar-option img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+    .avatar-option-none {
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface-3); font-size: 20px;
+    }
+
     /* ── INVITE MODAL ── */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 100;
@@ -391,6 +480,19 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- ═══ MODAL: Avatar Picker ═══ -->
+<div class="modal-overlay" id="modalAvatar">
+  <div class="modal-card" style="max-width:380px">
+    <div class="modal-title">🖼️ ELEGIR AVATAR</div>
+    <div class="modal-text" id="avatarForUser"></div>
+    <div class="avatar-grid" id="avatarGrid"></div>
+    <div class="confirm-actions">
+      <button class="admin-btn success" id="btnSaveAvatar" onclick="saveAvatar()" disabled>GUARDAR</button>
+      <button class="admin-btn danger" onclick="closeModal('modalAvatar')">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
@@ -473,8 +575,8 @@ function emailToKey(email) {
   return email.toLowerCase().replace(/[^a-z0-9]/g, "_");
 }
 
-function getInitials(email) {
-  const name = email.split("@")[0];
+function getInitials(nameOrEmail) {
+  const name = nameOrEmail.split("@")[0];
   return name.substring(0, 2).toUpperCase();
 }
 
@@ -509,9 +611,10 @@ function renderUsers(data) {
     return;
   }
 
-  const entries = Object.entries(data).sort((a, b) =>
-    (a[1].email || "").localeCompare(b[1].email || "")
-  );
+  const entries = Object.entries(data).sort((a, b) => {
+    if (a[1].status !== b[1].status) return a[1].status === "active" ? -1 : 1;
+    return (a[1].nombre || a[1].email || "").localeCompare(b[1].nombre || b[1].email || "");
+  });
 
   const activeCount = entries.filter(([, u]) => u.status === "active").length;
   const pendingCount = entries.filter(([, u]) => u.status === "pending").length;
@@ -522,26 +625,153 @@ function renderUsers(data) {
     const isActive = user.status === "active";
     const statusText = isActive ? "ACTIVO" : "PENDIENTE";
     const statusClass = isActive ? "active" : "pending";
-    const dateStr = user.creado
+    const nombre = user.nombre || "";
+    const avatarImg = user.avatar
+      ? `<img src="/images/${esc(user.avatar)}" alt="">`
+      : getInitials(nombre || user.email || key);
+
+    const dateCreado = user.creado
       ? new Date(user.creado).toLocaleDateString("es-AR") : "—";
-    const inviteInfo = user.invitado
-      ? `Invitado: ${new Date(user.invitado).toLocaleDateString("es-AR")}` : "";
-    const registeredInfo = isActive && user.registrado
-      ? `Registrado: ${new Date(user.registrado).toLocaleDateString("es-AR")}` : "";
-    const metaLine = [inviteInfo, registeredInfo].filter(Boolean).join(" · ") || `Creado: ${dateStr}`;
+    const dateInvitado = user.invitado
+      ? new Date(user.invitado).toLocaleDateString("es-AR") : "—";
+    const dateRegistrado = user.registrado
+      ? new Date(user.registrado).toLocaleDateString("es-AR") : "—";
+
+    const displayName = nombre || user.email || key;
+    const metaLine = nombre ? esc(user.email || key) : "";
 
     html += `
-      <div class="user-card">
-        <div class="user-avatar">${getInitials(user.email || key)}</div>
-        <div class="user-info">
-          <div class="user-email">${esc(user.email || key)}</div>
-          <div class="user-meta">${metaLine}</div>
+      <div class="user-card" data-key="${esc(key)}" onclick="toggleUserCard(this)">
+        <div class="user-card-main">
+          <div class="user-avatar">${avatarImg}</div>
+          <div class="user-info">
+            <div class="user-nombre">${esc(displayName)}</div>
+            ${metaLine ? `<div class="user-email">${metaLine}</div>` : ""}
+          </div>
+          <span class="user-status ${statusClass}">${statusText}</span>
         </div>
-        <span class="user-status ${statusClass}">${statusText}</span>
+        <div class="user-details">
+          <div class="user-detail-row">
+            <span class="user-detail-label">NOMBRE</span>
+            <span class="user-detail-value">${esc(nombre || "Sin nombre")}</span>
+          </div>
+          <div class="user-detail-row">
+            <span class="user-detail-label">EMAIL</span>
+            <span class="user-detail-value">${esc(user.email || key)}</span>
+          </div>
+          <div class="user-detail-row">
+            <span class="user-detail-label">CREADO</span>
+            <span class="user-detail-value">${dateCreado}</span>
+          </div>
+          <div class="user-detail-row">
+            <span class="user-detail-label">INVITADO</span>
+            <span class="user-detail-value">${dateInvitado}</span>
+          </div>
+          ${isActive ? `<div class="user-detail-row">
+            <span class="user-detail-label">REGISTRADO</span>
+            <span class="user-detail-value">${dateRegistrado}</span>
+          </div>` : ""}
+          <div class="user-detail-row">
+            <span class="user-detail-label">ESTADO</span>
+            <span class="user-detail-value"><span class="user-status ${statusClass}" style="font-size:9px">${statusText}</span></span>
+          </div>
+          <div class="user-detail-row">
+            <span class="user-detail-label">AVATAR</span>
+            <span class="user-detail-value">
+              <button class="user-avatar-btn" onclick="event.stopPropagation(); openAvatarPicker('${esc(key)}')">
+                ${user.avatar ? '🖼️ CAMBIAR' : '🖼️ ASIGNAR'}
+              </button>
+            </span>
+          </div>
+        </div>
       </div>`;
   }
   container.innerHTML = html;
 }
+
+function toggleUserCard(el) {
+  if (el.classList.contains("expanded")) {
+    el.classList.remove("expanded");
+  } else {
+    document.querySelectorAll(".user-card.expanded").forEach(c => c.classList.remove("expanded"));
+    el.classList.add("expanded");
+  }
+}
+window.toggleUserCard = toggleUserCard;
+
+// ═══════════════════════════════════════════
+// AVATAR PICKER
+// ═══════════════════════════════════════════
+const AVATARS = [
+  "buldog.jpg","caba.jpg","cabe.jpg","capi.jpg","chiche.jpg",
+  "crina.jpg","dani.jpg","doc.jpg","dt.jpg","esteban.jpg",
+  "feli.jpg","leyenda.jpg","murga.jpg","pablito.jpg","pana.jpg",
+  "peia.jpg","pela.jpg","pulpo.jpg","santi.jpg","sebas.jpg",
+  "sicario.jpg","tano.jpg","uru.jpg","vita.jpg"
+];
+
+let avatarPickerKey = "";
+let avatarPickerSelection = "";
+
+function openAvatarPicker(userKey) {
+  avatarPickerKey = userKey;
+  avatarPickerSelection = "";
+  document.getElementById("btnSaveAvatar").disabled = true;
+
+  _dbGet(_dbRef(db, "lima/usuarios/" + userKey)).then(snap => {
+    const user = snap.val();
+    const currentAvatar = user?.avatar || "";
+    document.getElementById("avatarForUser").textContent = user?.nombre || user?.email || userKey;
+
+    let grid = `<div class="avatar-option avatar-option-none${!currentAvatar ? ' selected' : ''}" onclick="selectAvatar(this, '')">✖</div>`;
+    for (const av of AVATARS) {
+      const sel = currentAvatar === av ? " selected" : "";
+      grid += `<div class="avatar-option${sel}" onclick="selectAvatar(this, '${av}')">`;
+      grid += `<img src="/images/${av}" alt="${av.replace('.jpg','')}"></div>`;
+    }
+    document.getElementById("avatarGrid").innerHTML = grid;
+    openModal("modalAvatar");
+  });
+}
+window.openAvatarPicker = openAvatarPicker;
+
+function selectAvatar(el, filename) {
+  document.querySelectorAll(".avatar-option").forEach(o => o.classList.remove("selected"));
+  el.classList.add("selected");
+  avatarPickerSelection = filename;
+  document.getElementById("btnSaveAvatar").disabled = false;
+}
+window.selectAvatar = selectAvatar;
+
+async function saveAvatar() {
+  if (!avatarPickerKey) return;
+  const btn = document.getElementById("btnSaveAvatar");
+  btn.disabled = true;
+  btn.textContent = "GUARDANDO...";
+
+  try {
+    const snap = await _dbGet(_dbRef(db, "lima/usuarios/" + avatarPickerKey));
+    const userData = snap.val();
+    if (!userData) return;
+
+    if (avatarPickerSelection) {
+      userData.avatar = avatarPickerSelection;
+    } else {
+      delete userData.avatar;
+    }
+
+    await _dbSet(_dbRef(db, "lima/usuarios/" + avatarPickerKey), userData);
+    closeModal("modalAvatar");
+    showToast("✓ Avatar actualizado");
+    await loadUsers();
+  } catch (e) {
+    console.error("Error saving avatar:", e);
+  } finally {
+    btn.textContent = "GUARDAR";
+    btn.disabled = false;
+  }
+}
+window.saveAvatar = saveAvatar;
 
 // ═══════════════════════════════════════════
 // INVITE FLOW
