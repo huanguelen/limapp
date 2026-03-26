@@ -945,7 +945,6 @@ function showToast(msg) {
 }
 
 function buildEmailHtml(email, registroUrl) {
-  const name = esc(email.split("@")[0]);
   return `
     <div style="background-color:#0b1628;border-radius:12px;overflow:hidden;font-family:'Trebuchet MS',Arial,sans-serif">
       <div style="padding:28px 24px 20px;border-bottom:1px solid #162040;text-align:center">
@@ -953,7 +952,7 @@ function buildEmailHtml(email, registroUrl) {
         <div style="font-size:10px;color:#4a7a9e;letter-spacing:4px;padding-top:4px">PRODE OFICIAL</div>
       </div>
       <div style="padding:28px 28px 8px">
-        <p style="font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px">&iquest;QU&Eacute; HAC&Eacute;S, ${name}!?</p>
+        <p style="font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px">&iquest;QU&Eacute; HAC&Eacute;S, Limense!?</p>
         <p style="font-size:14px;color:#8fadc7;line-height:1.6;margin:0 0 12px">Te lleg&oacute; la citaci&oacute;n: alguien del plantel te invit&oacute; al Prode de LIMA.</p>
         <p style="font-size:14px;color:#8fadc7;line-height:1.6;margin:0 0 24px">La mec&aacute;nica es simple: carg&aacute;s tus pron&oacute;sticos antes de cada fecha, el que le pega m&aacute;s, sube en el ranking. El que menos... bueno, bancate las cargadas en el grupo.</p>
       </div>
@@ -989,7 +988,6 @@ function buildEmailHtml(email, registroUrl) {
 
 // Full standalone HTML for EmailJS template (inline styles for email clients)
 function buildFullEmailHtml(email, registroUrl) {
-  const name = esc(email.split("@")[0]);
   return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background-color:#060d1a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#060d1a">
@@ -1004,7 +1002,7 @@ function buildFullEmailHtml(email, registroUrl) {
       <tr><td>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding:28px 28px 8px">
-            <p style="font-family:'Trebuchet MS',Arial,sans-serif;font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px">&iquest;QU&Eacute; HAC&Eacute;S, ${name}!?</p>
+            <p style="font-family:'Trebuchet MS',Arial,sans-serif;font-size:20px;font-weight:700;color:#ffffff;margin:0 0 16px">&iquest;QU&Eacute; HAC&Eacute;S, Limense!?</p>
             <p style="font-size:14px;color:#8fadc7;line-height:1.6;margin:0 0 12px">Te lleg&oacute; la citaci&oacute;n: alguien del plantel te invit&oacute; al Prode de LIMA.</p>
             <p style="font-size:14px;color:#8fadc7;line-height:1.6;margin:0 0 24px">La mec&aacute;nica es simple: carg&aacute;s tus pron&oacute;sticos antes de cada fecha, el que le pega m&aacute;s, sube en el ranking. El que menos... bueno, bancate las cargadas en el grupo.</p>
           </td></tr>
