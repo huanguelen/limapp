@@ -914,24 +914,19 @@ async function sendInvite(email, isResend) {
     }
   }
 
-  // Show preview modal
-  document.getElementById("emailPreviewContent").innerHTML = emailHtml;
-  if (emailSent) {
-    document.getElementById("emailPreviewTitle").textContent = "📧 EMAIL ENVIADO";
-    document.getElementById("emailPreviewSubtitle").textContent = `Email enviado a ${email}:`;
-    document.getElementById("emailPreviewLink").style.display = "none";
-  } else {
+  // If email failed, show link for manual copy
+  if (!emailSent) {
+    document.getElementById("emailPreviewContent").innerHTML = emailHtml;
     document.getElementById("emailPreviewTitle").textContent = "📋 LINK DE REGISTRO";
     document.getElementById("emailPreviewSubtitle").textContent = "El email no se pudo enviar automáticamente. Copiá el link y envialo manualmente:";
     document.getElementById("emailPreviewLink").style.display = "";
     document.getElementById("registroLinkDisplay").textContent = registroUrl;
-    // Auto-copy to clipboard
     try {
       await navigator.clipboard.writeText(registroUrl);
       showToast("✓ Link copiado al portapapeles");
     } catch (e) { /* clipboard may fail without user gesture */ }
+    openModal("modalEmailPreview");
   }
-  openModal("modalEmailPreview");
 
   const label = isResend ? "Invitación reenviada" : "Invitación enviada";
   if (emailSent) {
