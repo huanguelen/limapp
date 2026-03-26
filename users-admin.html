@@ -197,16 +197,29 @@
     .users-count strong { color: var(--cyan); }
 
     /* ── EXPANDED USER CARD ── */
+    #usersList {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    }
+    @media (max-width: 900px) {
+      #usersList { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 540px) {
+      #usersList { grid-template-columns: 1fr; }
+    }
     .user-card {
       display: flex; align-items: center; gap: 12px;
       padding: 12px 14px; background: var(--surface-2);
       border: 1px solid var(--border); border-radius: 10px;
-      margin-bottom: 8px; cursor: pointer; transition: all .2s;
+      margin-bottom: 0; cursor: pointer; transition: all .2s;
     }
     .user-card:active { transform: scale(.99); }
     .user-card.expanded {
       flex-wrap: wrap; cursor: default;
       border-color: rgba(0,174,239,.3);
+      grid-column: 1 / -1;
+    }
+    .user-card.expanded .user-avatar {
+      width: 63px; height: 63px; font-size: 22px;
     }
     .user-card-main {
       display: flex; align-items: center; gap: 12px;
@@ -263,7 +276,7 @@
     /* ── AVATAR PICKER ── */
     .avatar-grid {
       display: grid; grid-template-columns: repeat(5, 1fr);
-      gap: 8px; margin: 14px 0;
+      gap: 10px; margin: 14px 0;
     }
     @media (min-width: 420px) {
       .avatar-grid { grid-template-columns: repeat(6, 1fr); }
@@ -482,7 +495,7 @@
 
 <!-- ═══ MODAL: Avatar Picker ═══ -->
 <div class="modal-overlay" id="modalAvatar">
-  <div class="modal-card" style="max-width:380px">
+  <div class="modal-card" style="max-width:440px">
     <div class="modal-title">🖼️ ELEGIR AVATAR</div>
     <div class="modal-text" id="avatarForUser"></div>
     <div class="avatar-grid" id="avatarGrid"></div>
