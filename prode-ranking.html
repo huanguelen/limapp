@@ -248,6 +248,114 @@
       filter: drop-shadow(0 0 4px rgba(0,174,239,.5));
     }
     .nav-tab span { position: relative; z-index: 1; }
+
+    /* ── FECHA SIDEBAR ── */
+    .fecha-sidebar {
+      position: fixed; left: 6px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; gap: 6px;
+      z-index: 40;
+    }
+    .fecha-pill {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 12px;
+      letter-spacing: 1px; color: var(--text-3);
+      cursor: pointer; transition: all .2s;
+      position: relative;
+    }
+    .fecha-pill:active { transform: scale(.9); }
+    .fecha-pill:hover, .fecha-pill.has-scores {
+      border-color: var(--cyan); color: var(--cyan);
+      background: var(--cyan-dim);
+    }
+    .fecha-pill .pill-dot {
+      position: absolute; top: 2px; right: 2px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--win); display: none;
+    }
+    .fecha-pill.has-scores .pill-dot { display: block; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; opacity: 0; pointer-events: none;
+      transition: opacity .25s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-card {
+      background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: 14px; width: 100%; max-width: 380px;
+      max-height: 80vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 30px rgba(0,174,239,.1);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 18px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 3px; color: var(--cyan);
+    }
+    .modal-close {
+      background: none; border: none; color: var(--text-3);
+      font-size: 22px; cursor: pointer; padding: 4px 8px;
+      line-height: 1; transition: color .2s;
+    }
+    .modal-close:hover { color: var(--loss); }
+    .modal-stats {
+      display: flex; gap: 12px; padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-stat {
+      flex: 1; text-align: center;
+    }
+    .modal-stat-val {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      letter-spacing: 2px;
+    }
+    .modal-stat-val.ok { color: var(--win); }
+    .modal-stat-val.pending { color: var(--draw); }
+    .modal-stat-label {
+      font-family: "Inter", system-ui, sans-serif; font-size: 10px;
+      letter-spacing: 1px; color: var(--text-3); margin-top: 2px;
+    }
+    .modal-body {
+      flex: 1; overflow-y: auto; padding: 10px 14px 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .modal-rank-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px;
+      transition: background .15s;
+    }
+    .modal-rank-row:nth-child(odd) { background: rgba(255,255,255,.02); }
+    .modal-rank-pos {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      color: var(--text-3); min-width: 24px; text-align: center;
+    }
+    .modal-rank-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 1.5px; color: var(--text);
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .modal-rank-pts {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--cyan); font-weight: 600; flex-shrink: 0;
+    }
+    .modal-empty {
+      text-align: center; color: var(--text-3); padding: 24px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+    }
+
+    /* Adjust main content to leave room for sidebar */
+    @media (min-width: 420px) {
+      .fecha-sidebar { left: 10px; }
+    }
   </style>
 </head>
 
@@ -257,6 +365,21 @@
   <a href="/prode.html" class="header-back" aria-label="Volver">←</a>
   <span class="header-title">LIMA FC</span>
 </header>
+
+<!-- Fecha sidebar -->
+<div class="fecha-sidebar" id="fechaSidebar"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">FECHA 1</span>
+      <button class="modal-close" id="modalClose">&times;</button>
+    </div>
+    <div class="modal-stats" id="modalStats"></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
 
 <div class="ranking-content">
   <div class="ranking-header">
@@ -302,6 +425,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { initializeAuth, onAuthStateChanged, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { USE_MOCK, firebaseConfig } from "./config.js";
+
+let _scoringData = null;
+let _fechasData = null;
 
 const INITIALS_EMOJI = [
   "⚽","🦁","🔥","💪","🎯","⭐","🏅","👑","🐺","🦅",
@@ -397,10 +523,11 @@ async function loadRanking() {
       const unsub = onAuthStateChanged(auth, () => { unsub(); resolve(); });
     });
 
-    // Read scoring and usuarios separately — usuarios may fail without auth
-    const [scoringResult, usersResult] = await Promise.allSettled([
+    // Read scoring, usuarios, and fechas — some may fail without auth
+    const [scoringResult, usersResult, fechasResult] = await Promise.allSettled([
       get(ref(db, "lima/prode/scoring")),
-      get(ref(db, "lima/usuarios"))
+      get(ref(db, "lima/usuarios")),
+      get(ref(db, "lima/prode/fechas"))
     ]);
 
     if (scoringResult.status === "rejected") {
@@ -411,6 +538,12 @@ async function loadRanking() {
 
     const scoringData = scoringResult.value.val();
     if (!scoringData) { render([]); return; }
+    _scoringData = scoringData;
+
+    // Store fechas data for sidebar
+    if (fechasResult.status === "fulfilled") {
+      _fechasData = fechasResult.value.val() || {};
+    }
 
     // Build avatar map only if usuarios loaded successfully
     const avatarMap = {};
@@ -458,11 +591,120 @@ async function loadRanking() {
     ranking.sort((a, b) => b.pts - a.pts || b.exactos - a.exactos || b.aciertos - a.aciertos);
 
     render(ranking);
+    renderFechaSidebar();
   } catch (e) {
     console.error("Error loading ranking:", e);
     document.getElementById("rankList").innerHTML = '<div style="text-align:center;color:var(--text-3);padding:40px;font-family:Inter,sans-serif;font-size:14px">Nada que ver por aqu\u00ed a\u00fan\u2026<br>aprovech\u00e1 para entrenar! \u26bd</div>';
   }
 }
+
+// ═══════════════════════════════════════════
+// FECHA SIDEBAR + MODAL
+// ═══════════════════════════════════════════
+function renderFechaSidebar() {
+  const container = document.getElementById("fechaSidebar");
+  if (!_fechasData || Object.keys(_fechasData).length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const sorted = Object.entries(_fechasData).sort((a, b) => Number(a[0]) - Number(b[0]));
+  let html = "";
+  for (const [key, fecha] of sorted) {
+    // Check if this fecha has scoring data
+    let hasScores = false;
+    if (_scoringData) {
+      for (const d of Object.values(_scoringData)) {
+        if (d.fechas && d.fechas[key]) { hasScores = true; break; }
+      }
+    }
+    html += `<button class="fecha-pill ${hasScores ? 'has-scores' : ''}" data-fecha="${esc(key)}" title="Fecha ${esc(key)}">
+      F${esc(key)}<span class="pill-dot"></span>
+    </button>`;
+  }
+  container.innerHTML = html;
+
+  // Click handlers
+  container.querySelectorAll(".fecha-pill").forEach(btn => {
+    btn.addEventListener("click", () => openFechaModal(btn.dataset.fecha));
+  });
+}
+
+function openFechaModal(fechaKey) {
+  const overlay = document.getElementById("modalOverlay");
+  const fecha = _fechasData && _fechasData[fechaKey];
+
+  document.getElementById("modalTitle").textContent = `FECHA ${fechaKey}`;
+
+  // Stats: partidos finalizados / pendientes
+  let total = 0, played = 0;
+  if (fecha && fecha.groups) {
+    for (const g of fecha.groups) {
+      for (const m of g.matches) {
+        total++;
+        if (m.homeScore != null && m.awayScore != null) played++;
+      }
+    }
+  }
+  const pending = total - played;
+  document.getElementById("modalStats").innerHTML = `
+    <div class="modal-stat">
+      <div class="modal-stat-val ok">${played}</div>
+      <div class="modal-stat-label">FINALIZADOS</div>
+    </div>
+    <div class="modal-stat">
+      <div class="modal-stat-val pending">${pending}</div>
+      <div class="modal-stat-label">PENDIENTES</div>
+    </div>
+    <div class="modal-stat">
+      <div class="modal-stat-val" style="color:var(--text-2)">${total}</div>
+      <div class="modal-stat-label">TOTAL</div>
+    </div>`;
+
+  // Ranking for this fecha
+  const body = document.getElementById("modalBody");
+  if (!_scoringData) {
+    body.innerHTML = '<div class="modal-empty">Sin puntajes calculados para esta fecha</div>';
+  } else {
+    const entries = [];
+    for (const [uid, data] of Object.entries(_scoringData)) {
+      if (!data.fechas || !data.fechas[fechaKey]) continue;
+      const f = data.fechas[fechaKey];
+      entries.push({
+        name: data.nombre || formatName(data.email) || uid.substring(0, 12) + "...",
+        puntos: f.puntos || 0,
+        aciertos: f.aciertos || 0,
+        exactos: f.exactos || 0
+      });
+    }
+    entries.sort((a, b) => b.puntos - a.puntos || b.exactos - a.exactos || b.aciertos - a.aciertos);
+
+    if (entries.length === 0) {
+      body.innerHTML = '<div class="modal-empty">Sin puntajes calculados para esta fecha</div>';
+    } else {
+      let html = "";
+      entries.forEach((e, i) => {
+        html += `<div class="modal-rank-row">
+          <span class="modal-rank-pos">${i + 1}°</span>
+          <span class="modal-rank-name">${esc(e.name)}</span>
+          <span class="modal-rank-pts">${e.puntos} pts</span>
+        </div>`;
+      });
+      body.innerHTML = html;
+    }
+  }
+
+  overlay.classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modalOverlay").classList.remove("open");
+}
+
+document.getElementById("modalClose").addEventListener("click", closeModal);
+document.getElementById("modalOverlay").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
 
 loadRanking();
 </script>
