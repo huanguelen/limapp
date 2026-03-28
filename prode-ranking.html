@@ -249,14 +249,22 @@
     }
     .nav-tab span { position: relative; z-index: 1; }
 
-    /* ── FECHA SIDEBAR ── */
-    .fecha-sidebar {
-      position: fixed; left: 6px; top: 50%; transform: translateY(-50%);
-      display: flex; flex-direction: column; gap: 8px;
-      z-index: 40;
+    /* ── FECHAS CONTAINER ── */
+    .fechas-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 20px;
+    }
+    .fechas-box-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 3px; color: var(--text-3); margin-bottom: 10px;
+      text-align: center;
+    }
+    .fechas-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 8px; justify-items: center;
     }
     .fecha-pill {
-      width: 40px; height: 40px; border-radius: 50%;
+      width: 42px; height: 42px; border-radius: 50%;
       background: linear-gradient(145deg, var(--surface-2), var(--surface-3));
       border: 1.5px solid var(--cyan);
       display: flex; align-items: center; justify-content: center;
@@ -360,11 +368,6 @@
       text-align: center; color: var(--text-3); padding: 24px;
       font-family: "Inter", system-ui, sans-serif; font-size: 13px;
     }
-
-    /* Adjust main content to leave room for sidebar */
-    @media (min-width: 420px) {
-      .fecha-sidebar { left: 10px; }
-    }
   </style>
 </head>
 
@@ -374,9 +377,6 @@
   <a href="/prode.html" class="header-back" aria-label="Volver">←</a>
   <span class="header-title">LIMA FC</span>
 </header>
-
-<!-- Fecha sidebar -->
-<div class="fecha-sidebar" id="fechaSidebar"></div>
 
 <!-- Modal -->
 <div class="modal-overlay" id="modalOverlay">
@@ -394,6 +394,12 @@
   <div class="ranking-header">
     <div class="ranking-title">🏆 RANKING PRODE</div>
     <div class="ranking-subtitle">POSICIONES ACUMULADAS · JUNIOR APERTURA 2026</div>
+  </div>
+
+  <!-- Fechas grid -->
+  <div class="fechas-box" id="fechasBox" style="display:none">
+    <div class="fechas-box-title">⚽ FECHAS</div>
+    <div class="fechas-grid" id="fechaSidebar"></div>
   </div>
 
   <!-- Podium top 3 -->
@@ -612,15 +618,16 @@ async function loadRanking() {
 // ═══════════════════════════════════════════
 function renderFechaSidebar() {
   const container = document.getElementById("fechaSidebar");
+  const box = document.getElementById("fechasBox");
   if (!_fechasData || Object.keys(_fechasData).length === 0) {
     container.innerHTML = "";
+    box.style.display = "none";
     return;
   }
 
   const sorted = Object.entries(_fechasData).sort((a, b) => Number(a[0]) - Number(b[0]));
   let html = "";
   for (const [key, fecha] of sorted) {
-    // Check if this fecha has scoring data
     let hasScores = false;
     if (_scoringData) {
       for (const d of Object.values(_scoringData)) {
@@ -632,6 +639,7 @@ function renderFechaSidebar() {
     </button>`;
   }
   container.innerHTML = html;
+  box.style.display = "";
 
   // Click handlers
   container.querySelectorAll(".fecha-pill").forEach(btn => {
