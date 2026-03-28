@@ -300,7 +300,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { initializeAuth, onAuthStateChanged, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
 const INITIALS_EMOJI = [
@@ -386,29 +386,39 @@ async function loadRanking() {
   try {
     const fbApp = initializeApp(firebaseConfig);
     const db = getDatabase(fbApp);
-    const auth = getAuth(fbApp);
 
-    // Use same persistence as prode.html so auth tokens are found
-    await setPersistence(auth, browserSessionPersistence);
+    // initializeAuth with session persistence so tokens from prode.html are found
+    const auth = initializeAuth(fbApp, {
+      persistence: browserSessionPersistence
+    });
 
-    // Wait for auth state to be restored before reading data
+    // Wait for auth state to be restored
     await new Promise((resolve) => {
       const unsub = onAuthStateChanged(auth, () => { unsub(); resolve(); });
     });
 
-    // 1. Read scoring and users in parallel
-    const [scoringSnap, usersSnap] = await Promise.all([
+    // Read scoring and usuarios separately — usuarios may fail without auth
+    const [scoringResult, usersResult] = await Promise.allSettled([
       get(ref(db, "lima/prode/scoring")),
       get(ref(db, "lima/usuarios"))
     ]);
-    const scoringData = scoringSnap.val();
-    if (!scoringData) { render([]); return; }
-    const usersData = usersSnap.val() || {};
 
-    // Build email->avatar map from usuarios
+    if (scoringResult.status === "rejected") {
+      console.warn("Could not read scoring:", scoringResult.reason);
+      render([]);
+      return;
+    }
+
+    const scoringData = scoringResult.value.val();
+    if (!scoringData) { render([]); return; }
+
+    // Build avatar map only if usuarios loaded successfully
     const avatarMap = {};
-    for (const u of Object.values(usersData)) {
-      if (u.email && u.avatar) avatarMap[u.email.toLowerCase()] = u.avatar;
+    if (usersResult.status === "fulfilled") {
+      const usersData = usersResult.value.val() || {};
+      for (const u of Object.values(usersData)) {
+        if (u.email && u.avatar) avatarMap[u.email.toLowerCase()] = u.avatar;
+      }
     }
 
     // 2. Build ranking array from scoring data (email is stored in scoring)
