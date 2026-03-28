@@ -1015,9 +1015,9 @@ async function loadExistingScoring(fechaKey) {
 
     if (entries.length === 0) { el.style.display = "none"; return; }
 
-    let html = `<strong>🏆 Puntajes calculados</strong><br><br>`;
+    let html = `<strong>🏆 Puntajes calculados — Fecha ${esc(fechaKey)}</strong><br><br>`;
     html += `<table style="width:100%;font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse">`;
-    html += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Fecha</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
+    html += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Pts F${esc(fechaKey)}</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
     entries.forEach((e, i) => {
       html += `<tr style="border-bottom:1px solid var(--border)">`;
       html += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;
@@ -1155,7 +1155,7 @@ async function calculateScores() {
 
     let summaryHtml = `<strong>Fecha ${fecha.numero} — Puntajes calculados y guardados</strong><br><br>`;
     summaryHtml += `<table style="width:100%;font-family:Inter,sans-serif;font-size:13px;border-collapse:collapse">`;
-    summaryHtml += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Fecha</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
+    summaryHtml += `<tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px">Pos</th><th style="text-align:left;padding:6px">Usuario</th><th style="text-align:center;padding:6px">Pts F${fecha.numero}</th><th style="text-align:center;padding:6px">Aciertos</th><th style="text-align:center;padding:6px">Exactos</th><th style="text-align:center;padding:6px">Total</th></tr>`;
     fechaEntries.forEach((e, i) => {
       summaryHtml += `<tr style="border-bottom:1px solid var(--border)">`;
       summaryHtml += `<td style="padding:6px;color:var(--cyan)">${i + 1}</td>`;

@@ -300,6 +300,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
 const INITIALS_EMOJI = [
@@ -375,9 +376,9 @@ function render(ranking) {
 async function loadRanking() {
   if (USE_MOCK) {
     render([
-      { name: "Jugador Demo", pts: 10, emoji: "⚽" },
-      { name: "Jugador 2", pts: 7, emoji: "🦁" },
-      { name: "Jugador 3", pts: 5, emoji: "🔥" },
+      { name: "Jugador Demo", pts: 10, emoji: "⚽", avatarHtml: "⚽" },
+      { name: "Jugador 2", pts: 7, emoji: "🦁", avatarHtml: "🦁" },
+      { name: "Jugador 3", pts: 5, emoji: "🔥", avatarHtml: "🔥" },
     ]);
     return;
   }
@@ -385,6 +386,12 @@ async function loadRanking() {
   try {
     const fbApp = initializeApp(firebaseConfig);
     const db = getDatabase(fbApp);
+    const auth = getAuth(fbApp);
+
+    // Wait for auth state to be restored before reading data
+    await new Promise((resolve) => {
+      const unsub = onAuthStateChanged(auth, () => { unsub(); resolve(); });
+    });
 
     // 1. Read scoring and users in parallel
     const [scoringSnap, usersSnap] = await Promise.all([
