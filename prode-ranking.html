@@ -251,20 +251,22 @@
 
     /* ── FECHAS CONTAINER ── */
     .fechas-box {
+      position: fixed; left: 8px; top: 50%; transform: translateY(-50%);
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 12px 14px; margin-bottom: 20px;
+      border-radius: 12px; padding: 10px 8px;
+      z-index: 40; width: 62px;
     }
     .fechas-box-title {
-      font-family: "Bebas Neue", sans-serif; font-size: 14px;
-      letter-spacing: 3px; color: var(--text-3); margin-bottom: 10px;
+      font-family: "Bebas Neue", sans-serif; font-size: 10px;
+      letter-spacing: 2px; color: var(--text-3); margin-bottom: 8px;
       text-align: center;
     }
     .fechas-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 8px; justify-items: center;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px;
     }
     .fecha-pill {
-      width: 42px; height: 42px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%;
       background: linear-gradient(145deg, var(--surface-2), var(--surface-3));
       border: 1.5px solid var(--cyan);
       display: flex; align-items: center; justify-content: center;
@@ -390,16 +392,16 @@
   </div>
 </div>
 
+<!-- Fechas sidebar -->
+<div class="fechas-box" id="fechasBox" style="display:none">
+  <div class="fechas-box-title">⚽ FECHAS</div>
+  <div class="fechas-grid" id="fechaSidebar"></div>
+</div>
+
 <div class="ranking-content">
   <div class="ranking-header">
     <div class="ranking-title">🏆 RANKING PRODE</div>
     <div class="ranking-subtitle">POSICIONES ACUMULADAS · JUNIOR APERTURA 2026</div>
-  </div>
-
-  <!-- Fechas grid -->
-  <div class="fechas-box" id="fechasBox" style="display:none">
-    <div class="fechas-box-title">⚽ FECHAS</div>
-    <div class="fechas-grid" id="fechaSidebar"></div>
   </div>
 
   <!-- Podium top 3 -->
