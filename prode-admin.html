@@ -510,36 +510,39 @@ let previewData = null; // { numero, groups: [{ date, matches: [{ home, away }] 
 // PARSER — extracts fecha data from GEBA HTML
 // ═══════════════════════════════════════════
 function parseGEBA(html, fechaNum) {
-  // Find FECHA N boundary
-  const fechaTag = `FECHA ${fechaNum}</div>`;
-  const startIdx = html.indexOf(fechaTag);
-  if (startIdx === -1) throw new Error(`No se encontró FECHA ${fechaNum} en el HTML`);
-
-  // Find next FECHA or end
-  const nextFecha = `FECHA ${fechaNum + 1}</div>`;
-  let endIdx = html.indexOf(nextFecha);
-  if (endIdx === -1) endIdx = html.length;
-
-  const section = html.substring(startIdx + fechaTag.length, endIdx);
-
-  // Parse using DOMParser on the section wrapped in a container
+  // Parse full HTML at once for robustness
   const parser = new DOMParser();
-  const doc = parser.parseFromString(`<div>${section}</div>`, "text/html");
-  const rows = doc.querySelectorAll(".jstable-row");
+  const doc = parser.parseFromString(html, "text/html");
+
+  // Find the matchday heading for FECHA N
+  const headings = doc.querySelectorAll(".jsrow-matchday-name");
+  let headingEl = null;
+  for (const h of headings) {
+    if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
+  }
+  if (!headingEl) throw new Error(`No se encontró FECHA ${fechaNum} en el HTML`);
+
+  // Walk sibling rows from the heading's parent
+  const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
+  const matchRows = [];
+  let sibling = headingRow.nextElementSibling;
+  while (sibling) {
+    if (sibling.querySelector(".jsrow-matchday-name")) break; // next fecha
+    if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
+    sibling = sibling.nextElementSibling;
+  }
 
   const groups = [];
   let currentDate = "";
   let currentMatches = [];
 
-  for (const row of rows) {
-    // Check for time cell (indicates a match row)
+  for (const row of matchRows) {
     const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
     const homeCell = row.querySelector(".jsMatchDivHome .js_div_particName a");
     const awayCell = row.querySelector(".jsMatchDivAway .js_div_particName a");
 
     if (timeCell && homeCell && awayCell) {
       const rawDate = timeCell.textContent.trim();
-      // Extract day info: "Viernes 27 Marzo, 2026 21:50" → "VIERNES 27 MARZO 2026"
       const dateOnly = rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase();
 
       if (dateOnly !== currentDate) {
@@ -550,7 +553,6 @@ function parseGEBA(html, fechaNum) {
         currentMatches = [];
       }
 
-      // Extract score from .jsScoreDiv a
       const scoreAnchor = row.querySelector(".jsScoreDiv a");
       let homeScore = null, awayScore = null;
       if (scoreAnchor) {
@@ -570,7 +572,6 @@ function parseGEBA(html, fechaNum) {
       });
     }
   }
-  // Push last group
   if (currentDate && currentMatches.length) {
     groups.push({ date: currentDate, matches: [...currentMatches] });
   }
@@ -586,6 +587,7 @@ function parseGEBA(html, fechaNum) {
 // ═══════════════════════════════════════════
 const CORS_PROXIES = [
   url => `/api/proxy?url=${encodeURIComponent(url)}`,
+  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
   url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
   url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
@@ -594,7 +596,10 @@ async function fetchHtml(url) {
   for (const proxy of CORS_PROXIES) {
     try {
       const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(15000) });
-      if (resp.ok) return await resp.text();
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      // Validate we got actual HTML, not an error page
+      if (text.length > 1000 && text.includes("jstable")) return text;
     } catch (e) { /* try next proxy */ }
   }
   throw new Error("No se pudo obtener la página. Usá 'PEGAR HTML' como alternativa.");
