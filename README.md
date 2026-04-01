@@ -99,7 +99,7 @@ La siguiente versión será una **app nativa multiplataforma** (iOS + Android):
 ## 🏆 Lima FC
 
 Equipo de fútbol recreativo.  
-Construido con ❤️ por el DT y el equipo.
+Construido por Pablo y Dani para todo LimaFC.
 
 ---
 
