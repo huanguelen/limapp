@@ -592,7 +592,7 @@ const CORS_PROXIES = [
   url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
 
-async function fetchHtml(url) {
+async function fetchHtmlSinglePage(url) {
   for (const proxy of CORS_PROXIES) {
     try {
       const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(15000) });
@@ -603,6 +603,57 @@ async function fetchHtml(url) {
     } catch (e) { /* try next proxy */ }
   }
   throw new Error("No se pudo obtener la página. Usá 'PEGAR HTML' como alternativa.");
+}
+
+// Detect max page from pagination links in HTML
+function detectMaxPage(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+  let maxPage = 1;
+  // Look for pagination links with ?page=N
+  const links = doc.querySelectorAll('a[href*="page="]');
+  for (const link of links) {
+    const match = link.href.match(/[?&]page=(\d+)/);
+    if (match) {
+      const p = parseInt(match[1], 10);
+      if (p > maxPage) maxPage = p;
+    }
+  }
+  return maxPage;
+}
+
+// Fetch HTML iterating through all pages until the fecha is found
+async function fetchHtml(baseUrl, fechaNum) {
+  // Strip any existing page param from base URL
+  const cleanUrl = baseUrl.replace(/[?&]page=\d+/, '').replace(/[?&]$/, '');
+
+  // Fetch page 1 first
+  const firstPageUrl = cleanUrl + (cleanUrl.includes('?') ? '&' : '?') + 'page=1';
+  const firstHtml = await fetchHtmlSinglePage(firstPageUrl);
+
+  // Check if fecha exists in page 1
+  const parser = new DOMParser();
+  const doc1 = parser.parseFromString(firstHtml, "text/html");
+  const headings1 = doc1.querySelectorAll(".jsrow-matchday-name");
+  for (const h of headings1) {
+    if (h.textContent.trim() === `FECHA ${fechaNum}`) return firstHtml;
+  }
+
+  // Not found — detect total pages and try remaining
+  const maxPage = detectMaxPage(firstHtml);
+  for (let page = 2; page <= maxPage; page++) {
+    const pageUrl = cleanUrl + (cleanUrl.includes('?') ? '&' : '?') + `page=${page}`;
+    try {
+      const html = await fetchHtmlSinglePage(pageUrl);
+      const doc = parser.parseFromString(html, "text/html");
+      const headings = doc.querySelectorAll(".jsrow-matchday-name");
+      for (const h of headings) {
+        if (h.textContent.trim() === `FECHA ${fechaNum}`) return html;
+      }
+    } catch (e) { /* try next page */ }
+  }
+
+  throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} página(s). Verificá el número de fecha.`);
 }
 
 function setMsg(id, text, type) {
@@ -619,10 +670,10 @@ async function doFetch() {
   if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
 
   document.getElementById("btnFetch").disabled = true;
-  setMsg("fetchMsg", '<span class="spinner"></span>Obteniendo datos...', "info");
+  setMsg("fetchMsg", '<span class="spinner"></span>Obteniendo datos (buscando en paginado)...', "info");
 
   try {
-    const html = await fetchHtml(url);
+    const html = await fetchHtml(url, num);
     const data = parseGEBA(html, num);
     previewData = data;
     showPreview(data);
@@ -849,7 +900,7 @@ async function doUpdateResults(key) {
   setMsg("resultsMsg", "", "");
 
   try {
-    const html = await fetchHtml(url);
+    const html = await fetchHtml(url, fechaNum);
     const freshData = parseGEBA(html, fechaNum);
 
     pendingResults = { key, stored, freshData };
