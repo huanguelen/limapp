@@ -510,76 +510,95 @@ let previewData = null; // { numero, groups: [{ date, matches: [{ home, away }] 
 // PARSER — extracts fecha data from GEBA HTML
 // ═══════════════════════════════════════════
 function parseGEBA(html, fechaNum) {
-  // Parse full HTML at once for robustness
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+  // html can be an array of HTML strings (one per page) or a single string
+  const htmlPages = Array.isArray(html) ? html : [html];
 
-  // Find the matchday heading for FECHA N
-  const headings = doc.querySelectorAll(".jsrow-matchday-name");
-  let headingEl = null;
-  for (const h of headings) {
-    if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
-  }
-  if (!headingEl) throw new Error(`No se encontró FECHA ${fechaNum} en el HTML`);
+  const allGroups = [];
+  let lastDate = "";
 
-  // Walk sibling rows from the heading's parent
-  const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
-  const matchRows = [];
-  let sibling = headingRow.nextElementSibling;
-  while (sibling) {
-    if (sibling.querySelector(".jsrow-matchday-name")) break; // next fecha
-    if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
-    sibling = sibling.nextElementSibling;
-  }
+  for (const pageHtml of htmlPages) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(pageHtml, "text/html");
 
-  const groups = [];
-  let currentDate = "";
-  let currentMatches = [];
-
-  for (const row of matchRows) {
-    const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
-    const homeCell = row.querySelector(".jsMatchDivHome .js_div_particName a");
-    const awayCell = row.querySelector(".jsMatchDivAway .js_div_particName a");
-
-    if (timeCell && homeCell && awayCell) {
-      const rawDate = timeCell.textContent.trim();
-      const dateOnly = rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase();
-
-      if (dateOnly !== currentDate) {
-        if (currentDate && currentMatches.length) {
-          groups.push({ date: currentDate, matches: [...currentMatches] });
-        }
-        currentDate = dateOnly;
-        currentMatches = [];
-      }
-
-      const scoreAnchor = row.querySelector(".jsScoreDiv a");
-      let homeScore = null, awayScore = null;
-      if (scoreAnchor) {
-        const scoreTxt = scoreAnchor.textContent.trim();
-        const scoreMatch = scoreTxt.match(/^(\d+)\s*-\s*(\d+)$/);
-        if (scoreMatch) {
-          homeScore = parseInt(scoreMatch[1], 10);
-          awayScore = parseInt(scoreMatch[2], 10);
-        }
-      }
-
-      currentMatches.push({
-        home: homeCell.textContent.trim().toUpperCase(),
-        away: awayCell.textContent.trim().toUpperCase(),
-        homeScore,
-        awayScore
-      });
+    // Find the matchday heading for FECHA N
+    const headings = doc.querySelectorAll(".jsrow-matchday-name");
+    let headingEl = null;
+    for (const h of headings) {
+      if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
     }
-  }
-  if (currentDate && currentMatches.length) {
-    groups.push({ date: currentDate, matches: [...currentMatches] });
+    if (!headingEl) continue; // this page doesn't have the fecha
+
+    // Walk sibling rows from the heading's parent
+    const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
+    const matchRows = [];
+    let sibling = headingRow.nextElementSibling;
+    while (sibling) {
+      if (sibling.querySelector(".jsrow-matchday-name")) break; // next fecha
+      if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
+      sibling = sibling.nextElementSibling;
+    }
+
+    let currentDate = lastDate;
+    let currentMatches = [];
+
+    for (const row of matchRows) {
+      const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
+      const homeCell = row.querySelector(".jsMatchDivHome .js_div_particName a");
+      const awayCell = row.querySelector(".jsMatchDivAway .js_div_particName a");
+
+      if (timeCell && homeCell && awayCell) {
+        const rawDate = timeCell.textContent.trim();
+        const dateOnly = rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase();
+
+        if (dateOnly !== currentDate) {
+          if (currentDate && currentMatches.length) {
+            // Merge with existing group if same date from previous page
+            const existingGroup = allGroups.find(g => g.date === currentDate);
+            if (existingGroup) {
+              existingGroup.matches.push(...currentMatches);
+            } else {
+              allGroups.push({ date: currentDate, matches: [...currentMatches] });
+            }
+          }
+          currentDate = dateOnly;
+          currentMatches = [];
+        }
+
+        const scoreAnchor = row.querySelector(".jsScoreDiv a");
+        let homeScore = null, awayScore = null;
+        if (scoreAnchor) {
+          const scoreTxt = scoreAnchor.textContent.trim();
+          const scoreMatch = scoreTxt.match(/^(\d+)\s*-\s*(\d+)$/);
+          if (scoreMatch) {
+            homeScore = parseInt(scoreMatch[1], 10);
+            awayScore = parseInt(scoreMatch[2], 10);
+          }
+        }
+
+        currentMatches.push({
+          home: homeCell.textContent.trim().toUpperCase(),
+          away: awayCell.textContent.trim().toUpperCase(),
+          homeScore,
+          awayScore
+        });
+      }
+    }
+    if (currentDate && currentMatches.length) {
+      const existingGroup = allGroups.find(g => g.date === currentDate);
+      if (existingGroup) {
+        existingGroup.matches.push(...currentMatches);
+      } else {
+        allGroups.push({ date: currentDate, matches: [...currentMatches] });
+      }
+    }
+    // Remember last date for continuity between pages
+    if (currentDate) lastDate = currentDate;
   }
 
-  if (groups.length === 0) throw new Error(`No se encontraron partidos en FECHA ${fechaNum}`);
+  if (allGroups.length === 0) throw new Error(`No se encontraron partidos en FECHA ${fechaNum}`);
 
-  const totalMatches = groups.reduce((s, g) => s + g.matches.length, 0);
-  return { numero: fechaNum, groups, totalMatches };
+  const totalMatches = allGroups.reduce((s, g) => s + g.matches.length, 0);
+  return { numero: fechaNum, groups: allGroups, totalMatches };
 }
 
 // ═══════════════════════════════════════════
@@ -632,36 +651,52 @@ function buildPageUrl(baseUrl, page) {
   return url;
 }
 
-// Fetch HTML iterating through all pages until the fecha is found
+// Fetch ALL pages that contain the fecha (a fecha can span multiple pages)
 async function fetchHtml(baseUrl, fechaNum) {
   // 1. Fetch the base URL as-is first
   const firstHtml = await fetchHtmlSinglePage(baseUrl);
 
-  // Check if fecha exists in this page
-  if (htmlContainsFecha(firstHtml, fechaNum)) return firstHtml;
-
   // 2. Detect total pages from this HTML
   const maxPage = detectMaxPage(firstHtml);
-  console.log(`[Paginación] FECHA ${fechaNum} no está en página actual. Páginas detectadas: ${maxPage}`);
+  console.log(`[Paginación] Páginas detectadas: ${maxPage}`);
 
-  // 3. Try all pages (including explicit page=1 if current was different)
+  // If only 1 page, return it directly
+  if (maxPage <= 1) return [firstHtml];
+
+  // 3. Fetch ALL pages and collect those that contain the fecha
+  const allPages = [];
+  // We already have the first page (base URL, which is usually page=2 or default)
+  const baseIsPage = baseUrl.match(/[?&]page=(\d+)/);
+  const basePage = baseIsPage ? parseInt(baseIsPage[1], 10) : null;
+
   for (let page = 1; page <= maxPage; page++) {
-    const pageUrl = buildPageUrl(baseUrl, page);
-    // Skip if it's the same URL we already fetched
-    if (pageUrl === baseUrl || pageUrl === baseUrl + '?page=1') {
-      // Already checked the base URL, check page=1 only if base didn't have page param
-      if (page === 1 && !baseUrl.includes('page=')) continue;
+    // Reuse already-fetched page if possible
+    if ((basePage === page) || (basePage === null && page === 1)) {
+      // Check if base URL without page param is same as page 1
+      if (htmlContainsFecha(firstHtml, fechaNum)) {
+        allPages.push(firstHtml);
+      }
+      continue;
     }
+
+    const pageUrl = buildPageUrl(baseUrl, page);
     try {
-      console.log(`[Paginación] Buscando FECHA ${fechaNum} en página ${page}...`);
+      console.log(`[Paginación] Obteniendo página ${page}/${maxPage}...`);
       const html = await fetchHtmlSinglePage(pageUrl);
-      if (htmlContainsFecha(html, fechaNum)) return html;
+      if (htmlContainsFecha(html, fechaNum)) {
+        allPages.push(html);
+      }
     } catch (e) {
       console.warn(`[Paginación] Error en página ${page}:`, e.message);
     }
   }
 
-  throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} página(s). Verificá el número de fecha.`);
+  if (allPages.length === 0) {
+    throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} página(s). Verificá el número de fecha.`);
+  }
+
+  console.log(`[Paginación] FECHA ${fechaNum} encontrada en ${allPages.length} página(s)`);
+  return allPages;
 }
 
 function setMsg(id, text, type) {
