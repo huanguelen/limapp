@@ -595,13 +595,29 @@
   <div class="auth-card">
     <div class="auth-logo">🎲 PRODE LIMA</div>
     <div class="auth-subtitle">INGRESÁ PARA JUGAR</div>
-    <form id="authForm" onsubmit="return false">
-      <input class="auth-field" type="email" id="authEmail" placeholder="Email" required autocomplete="email">
-      <input class="auth-field" type="password" id="authPass" placeholder="Contraseña" required autocomplete="current-password" minlength="6">
-      <button class="auth-btn" type="submit" id="authBtn">INGRESAR</button>
-    </form>
-    <div class="auth-error" id="authError"></div>
-    <a href="/" style="display:block;text-align:center;margin-top:16px;color:var(--text-3);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;text-decoration:none;transition:color .2s">← VOLVER AL INICIO</a>
+    <!-- Login form -->
+    <div id="loginView">
+      <form id="authForm" onsubmit="return false">
+        <input class="auth-field" type="email" id="authEmail" placeholder="Email" required autocomplete="email">
+        <input class="auth-field" type="password" id="authPass" placeholder="Contraseña" required autocomplete="current-password" minlength="6">
+        <button class="auth-btn" type="submit" id="authBtn">INGRESAR</button>
+      </form>
+      <div class="auth-error" id="authError"></div>
+      <button onclick="showForgotView()" style="display:block;width:100%;background:none;border:none;text-align:center;margin-top:14px;color:var(--cyan);font-family:'Inter',system-ui,sans-serif;font-size:12px;letter-spacing:.5px;cursor:pointer;padding:8px;transition:opacity .2s;opacity:.8">¿Olvidaste tu contraseña?</button>
+      <a href="/" style="display:block;text-align:center;margin-top:8px;color:var(--text-3);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;text-decoration:none;transition:color .2s">← VOLVER AL INICIO</a>
+    </div>
+
+    <!-- Forgot password view -->
+    <div id="forgotView" style="display:none">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--cyan);text-align:center;margin-bottom:6px">RECUPERAR CONTRASEÑA</div>
+      <div style="font-family:'Inter',system-ui,sans-serif;font-size:11px;color:var(--text-3);text-align:center;margin-bottom:18px;line-height:1.5">Ingresá tu email y te enviaremos un enlace para restablecer tu contraseña</div>
+      <form id="forgotForm" onsubmit="return false">
+        <input class="auth-field" type="email" id="forgotEmail" placeholder="Email" required autocomplete="email">
+        <button class="auth-btn" type="submit" id="forgotBtn">ENVIAR ENLACE</button>
+      </form>
+      <div class="auth-error" id="forgotMsg" style="color:var(--text-3)"></div>
+      <button onclick="showLoginView()" style="display:block;width:100%;background:none;border:none;text-align:center;margin-top:14px;color:var(--text-3);font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;cursor:pointer;padding:8px;transition:color .2s">← VOLVER AL LOGIN</button>
+    </div>
   </div>
 </div>
 
@@ -666,7 +682,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { USE_MOCK, firebaseConfig } from "./config.js";
 
@@ -750,7 +766,7 @@ function mockRef(db, path) { return path; }
 
 // ── Init real or mock ──
 let fbApp, auth, db;
-let _signIn, _signOutFn, _onAuth, _dbSet, _dbGet, _dbRef;
+let _signIn, _signOutFn, _onAuth, _dbSet, _dbGet, _dbRef, _sendResetEmail;
 
 if (!USE_MOCK) {
   fbApp = initializeApp(firebaseConfig);
@@ -763,6 +779,7 @@ if (!USE_MOCK) {
   _dbSet = set;
   _dbGet = get;
   _dbRef = ref;
+  _sendResetEmail = sendPasswordResetEmail;
 } else {
   console.log("%c[MOCK MODE] Firebase deshabilitado — usando datos locales", "color:#00AEEF;font-weight:bold");
   auth = mockAuth;
@@ -773,6 +790,7 @@ if (!USE_MOCK) {
   _dbSet = (r, data) => mockDbSet(r, data);
   _dbGet = (r) => mockDbGet(r);
   _dbRef = mockRef;
+  _sendResetEmail = (auth, email) => { console.log("[MOCK] Reset email sent to", email); return Promise.resolve(); };
 }
 
 let currentUser = null;
@@ -816,6 +834,55 @@ function doLogout() {
   _signOutFn(auth);
 }
 window.doLogout = doLogout;
+
+// ── Forgot password ──
+function showForgotView() {
+  document.getElementById("loginView").style.display = "none";
+  document.getElementById("forgotView").style.display = "";
+  document.getElementById("forgotMsg").textContent = "";
+  document.getElementById("forgotEmail").value = document.getElementById("authEmail").value || "";
+}
+window.showForgotView = showForgotView;
+
+function showLoginView() {
+  document.getElementById("forgotView").style.display = "none";
+  document.getElementById("loginView").style.display = "";
+}
+window.showLoginView = showLoginView;
+
+document.getElementById("forgotForm").addEventListener("submit", async () => {
+  const email = document.getElementById("forgotEmail").value.trim();
+  const msgEl = document.getElementById("forgotMsg");
+  const btn = document.getElementById("forgotBtn");
+  msgEl.textContent = "";
+  msgEl.style.color = "var(--text-3)";
+
+  if (!email) { msgEl.textContent = "Ingresá tu email"; msgEl.style.color = "var(--loss)"; return; }
+
+  btn.disabled = true;
+  btn.textContent = "ENVIANDO...";
+  try {
+    const actionCodeSettings = {
+      url: location.origin + "/reset-password.html",
+      handleCodeInApp: true
+    };
+    await _sendResetEmail(auth, email, actionCodeSettings);
+    msgEl.textContent = "✓ Te enviamos un email con el enlace para restablecer tu contraseña. Revisá tu casilla (y spam).";
+    msgEl.style.color = "var(--win)";
+    btn.textContent = "ENVIADO ✓";
+    setTimeout(() => { btn.textContent = "ENVIAR ENLACE"; btn.disabled = false; }, 4000);
+  } catch (err) {
+    const msgs = {
+      "auth/invalid-email": "Email inválido",
+      "auth/user-not-found": "No hay una cuenta con ese email",
+      "auth/too-many-requests": "Demasiados intentos. Intentá más tarde",
+    };
+    msgEl.textContent = msgs[err.code] || "Error al enviar. Intentá de nuevo.";
+    msgEl.style.color = "var(--loss)";
+    btn.textContent = "ENVIAR ENLACE";
+    btn.disabled = false;
+  }
+});
 
 // ── Auth state listener ──
 _onAuth(auth, async (user) => {
