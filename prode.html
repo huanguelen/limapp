@@ -585,6 +585,134 @@
       text-align: center; color: var(--text-3); padding: 20px;
       font-family: "Inter", sans-serif; font-size: 13px;
     }
+
+    /* ── HISTORIAL SEARCH ── */
+    .historial-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; margin-bottom: 20px;
+    }
+    .historial-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 3px; color: var(--cyan); text-align: center;
+      margin-bottom: 12px;
+    }
+    .historial-search-bar {
+      display: flex; gap: 8px; margin-bottom: 4px;
+    }
+    .historial-input {
+      flex: 1; padding: 10px 14px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 14px;
+      color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border-2); border-radius: 8px;
+      outline: none; transition: border-color .2s;
+    }
+    .historial-input::placeholder { color: var(--text-3); }
+    .historial-input:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.2); }
+    .historial-search-btn {
+      padding: 10px 18px;
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 2px; color: #fff;
+      background: linear-gradient(135deg, var(--blue), #1a1e5a);
+      border: 1px solid rgba(0,174,239,.4); border-radius: 8px;
+      cursor: pointer; transition: all .2s; flex-shrink: 0;
+    }
+    .historial-search-btn:active { transform: scale(.97); }
+    .historial-search-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Results */
+    .hist-results { margin-top: 14px; }
+    .hist-rival-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      letter-spacing: 3px; color: var(--cyan); text-align: center;
+      margin-bottom: 14px;
+    }
+    .hist-summary {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      margin-bottom: 14px;
+    }
+    @media (min-width: 440px) {
+      .hist-summary { grid-template-columns: repeat(6, 1fr); }
+    }
+    .hist-stat {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 6px; text-align: center;
+    }
+    .hist-stat-val {
+      font-family: "Bebas Neue", sans-serif; font-size: 22px;
+      letter-spacing: 1px;
+    }
+    .hist-stat-label {
+      font-family: "Inter", sans-serif; font-size: 9px;
+      letter-spacing: 1px; color: var(--text-3); margin-top: 2px;
+    }
+
+    /* Cancha table */
+    .hist-section-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 3px; color: var(--text-2); margin: 16px 0 8px;
+      padding-bottom: 4px; border-bottom: 1px solid var(--border);
+    }
+    .hist-table {
+      width: 100%; border-collapse: collapse;
+      font-family: "Inter", sans-serif; font-size: 11px;
+    }
+    .hist-table th {
+      font-family: "Bebas Neue", sans-serif; font-size: 11px;
+      letter-spacing: 2px; color: var(--text-3); padding: 6px 4px;
+      text-align: center; border-bottom: 1px solid var(--border);
+    }
+    .hist-table th:first-child { text-align: left; }
+    .hist-table td {
+      padding: 7px 4px; text-align: center;
+      border-bottom: 1px solid var(--border); color: var(--text-2);
+    }
+    .hist-table td:first-child {
+      text-align: left; color: var(--text);
+      font-family: "Bebas Neue", sans-serif; font-size: 13px; letter-spacing: 1px;
+    }
+    .hist-table tr:last-child td { border-bottom: none; }
+
+    /* Goleadores */
+    .hist-goleador {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 10px; margin-bottom: 4px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    .hist-goleador-name {
+      font-family: "Bebas Neue", sans-serif; font-size: 13px;
+      letter-spacing: 1px; color: var(--text);
+    }
+    .hist-goleador-goals {
+      font-family: "Bebas Neue", sans-serif; font-size: 16px;
+      letter-spacing: 1px; color: var(--cyan);
+    }
+
+    /* Match list */
+    .hist-match-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; margin-bottom: 4px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; font-size: 11px;
+    }
+    .hist-match-result {
+      font-family: "Bebas Neue", sans-serif; font-size: 14px;
+      letter-spacing: 1px; width: 22px; text-align: center; flex-shrink: 0;
+    }
+    .hist-match-score {
+      font-family: "Bebas Neue", sans-serif; font-size: 13px;
+      letter-spacing: 1px; color: var(--text); width: 38px;
+      text-align: center; flex-shrink: 0;
+    }
+    .hist-match-info {
+      flex: 1; min-width: 0; color: var(--text-3);
+      font-family: "Inter", sans-serif;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .hist-match-cancha {
+      font-family: "Bebas Neue", sans-serif; font-size: 11px;
+      letter-spacing: 1px; color: var(--text-3); flex-shrink: 0;
+    }
   </style>
 </head>
 
@@ -636,6 +764,16 @@
     <div class="prode-title">🎲 PRODE</div>
     <div class="prode-subtitle">INGRESÁ TU PRONÓSTICO · JUNIOR APERTURA 2026</div>
   </div>
+  <!-- HISTORIAL SEARCH -->
+  <div class="historial-box" id="historialBox">
+    <div class="historial-title">🔍 HISTORIAL VS RIVAL</div>
+    <div class="historial-search-bar">
+      <input class="historial-input" type="text" id="historialInput" placeholder="Nombre del equipo..." autocomplete="off">
+      <button class="historial-search-btn" id="historialSearchBtn">BUSCAR</button>
+    </div>
+    <div id="historialResults"></div>
+  </div>
+
   <div id="prodeList">
     <div class="prode-empty" id="prodeEmpty">Cargando fechas...</div>
   </div>
@@ -1291,6 +1429,175 @@ document.getElementById("prodeList").addEventListener("input", (e) => {
   if (msgEl) { msgEl.textContent = ""; msgEl.className = "prode-save-msg"; }
   const btn = document.getElementById("saveBtn_" + fechaKey);
   if (btn) btn.classList.remove("saved");
+});
+
+// ═══════════════════════════════════════════
+// HISTORIAL VS RIVAL — SEARCH
+// ═══════════════════════════════════════════
+let historialCache = null; // cache all records
+
+async function fetchHistorial() {
+  if (historialCache) return historialCache;
+  const snap = await _dbGet(_dbRef(db, "lima/partidos"));
+  const all = snap.val();
+  if (!all) return null;
+  // Filter only historial_geba records
+  const records = [];
+  for (const [key, m] of Object.entries(all)) {
+    if (m.tipo === "historial_geba") records.push(m);
+  }
+  historialCache = records;
+  return records;
+}
+
+async function searchHistorial(teamName) {
+  const resultsEl = document.getElementById("historialResults");
+  if (!teamName || !teamName.trim()) {
+    resultsEl.innerHTML = "";
+    return;
+  }
+  resultsEl.innerHTML = '<div class="prode-empty">Buscando...</div>';
+  const btn = document.getElementById("historialSearchBtn");
+  btn.disabled = true;
+
+  try {
+    const records = await fetchHistorial();
+    if (!records || records.length === 0) {
+      resultsEl.innerHTML = '<div class="prode-empty">No hay datos de historial</div>';
+      return;
+    }
+
+    const searchTerm = teamName.toUpperCase().trim();
+    const matches = records.filter(m => m.rival && m.rival.toUpperCase().includes(searchTerm));
+
+    if (matches.length === 0) {
+      resultsEl.innerHTML = `<div class="prode-empty">No se encontraron partidos contra "${esc(teamName)}"</div>`;
+      return;
+    }
+
+    // Determine most common rival name (for display)
+    const rivalNames = {};
+    matches.forEach(m => { rivalNames[m.rival] = (rivalNames[m.rival] || 0) + 1; });
+    const rivalDisplay = Object.entries(rivalNames).sort((a, b) => b[1] - a[1])[0][0];
+
+    // Filter only played matches for stats
+    const played = matches.filter(m => m.resultado !== null && m.resultado !== undefined);
+
+    let pj = 0, pg = 0, pe = 0, pp = 0, gf = 0, gc = 0;
+    const canchaStats = {};
+    const goleadores = {};
+
+    for (const m of played) {
+      pj++;
+      if (m.resultado === "G") pg++;
+      else if (m.resultado === "E") pe++;
+      else if (m.resultado === "P") pp++;
+
+      gf += (m.golLima || 0);
+      gc += (m.golRival || 0);
+
+      const cancha = m.cancha || "Sin cancha";
+      if (!canchaStats[cancha]) canchaStats[cancha] = { pj: 0, pg: 0, pe: 0, pp: 0, gf: 0, gc: 0 };
+      const cs = canchaStats[cancha];
+      cs.pj++;
+      if (m.resultado === "G") cs.pg++;
+      else if (m.resultado === "E") cs.pe++;
+      else if (m.resultado === "P") cs.pp++;
+      cs.gf += (m.golLima || 0);
+      cs.gc += (m.golRival || 0);
+
+      if (m.goleadores && m.goleadores.length > 0) {
+        for (const g of m.goleadores) {
+          const name = g.replace(/\s*\*\s*$/, "").trim();
+          if (!name) continue;
+          goleadores[name] = (goleadores[name] || 0) + 1;
+        }
+      }
+    }
+
+    // Sort matches by temporada desc, then fecha
+    played.sort((a, b) => {
+      if (a.temporada !== b.temporada) return Number(b.temporada) - Number(a.temporada);
+      return (b.fecha || "").localeCompare(a.fecha || "");
+    });
+
+    // Build HTML
+    let html = `<div class="hist-results">`;
+    html += `<div class="hist-rival-name">LIMA vs ${esc(rivalDisplay)}</div>`;
+
+    // Summary
+    html += `<div class="hist-summary">`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--text)">${pj}</div><div class="hist-stat-label">PJ</div></div>`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--win)">${pg}</div><div class="hist-stat-label">GANADOS</div></div>`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--draw)">${pe}</div><div class="hist-stat-label">EMPATES</div></div>`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--loss)">${pp}</div><div class="hist-stat-label">PERDIDOS</div></div>`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--cyan)">${gf}</div><div class="hist-stat-label">GF</div></div>`;
+    html += `<div class="hist-stat"><div class="hist-stat-val" style="color:var(--text-2)">${gc}</div><div class="hist-stat-label">GC</div></div>`;
+    html += `</div>`;
+
+    // Canchas
+    const canchaEntries = Object.entries(canchaStats).sort((a, b) => b[1].pj - a[1].pj);
+    if (canchaEntries.length > 0) {
+      html += `<div class="hist-section-title">🏟 ESTADÍSTICAS POR CANCHA</div>`;
+      html += `<table class="hist-table"><thead><tr>`;
+      html += `<th>CANCHA</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th>`;
+      html += `</tr></thead><tbody>`;
+      for (const [cancha, s] of canchaEntries) {
+        html += `<tr>`;
+        html += `<td>${esc(cancha)}</td>`;
+        html += `<td>${s.pj}</td>`;
+        html += `<td style="color:var(--win)">${s.pg}</td>`;
+        html += `<td style="color:var(--draw)">${s.pe}</td>`;
+        html += `<td style="color:var(--loss)">${s.pp}</td>`;
+        html += `<td>${s.gf}</td><td>${s.gc}</td>`;
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+    }
+
+    // Goleadores
+    const goleadorEntries = Object.entries(goleadores).sort((a, b) => b[1] - a[1]);
+    if (goleadorEntries.length > 0) {
+      html += `<div class="hist-section-title">⚽ GOLEADORES DE LIMA vs ${esc(rivalDisplay)}</div>`;
+      for (const [name, goals] of goleadorEntries) {
+        html += `<div class="hist-goleador">`;
+        html += `<span class="hist-goleador-name">${esc(name)}</span>`;
+        html += `<span class="hist-goleador-goals">${goals}</span>`;
+        html += `</div>`;
+      }
+    }
+
+    // Match history
+    if (played.length > 0) {
+      html += `<div class="hist-section-title">📋 PARTIDOS (${played.length})</div>`;
+      for (const m of played) {
+        const rColor = m.resultado === "G" ? "var(--win)" : m.resultado === "E" ? "var(--draw)" : "var(--loss)";
+        html += `<div class="hist-match-row">`;
+        html += `<span class="hist-match-result" style="color:${rColor}">${esc(m.resultado)}</span>`;
+        html += `<span class="hist-match-score">${m.golLima ?? "-"} - ${m.golRival ?? "-"}</span>`;
+        html += `<span class="hist-match-info">${esc(m.torneo || "")} · ${esc(m.ronda || "")} · ${esc(m.fecha || "")}</span>`;
+        html += `<span class="hist-match-cancha">${esc(m.cancha || "")}</span>`;
+        html += `</div>`;
+      }
+    }
+
+    html += `</div>`;
+    resultsEl.innerHTML = html;
+
+  } catch (e) {
+    console.error("Error searching historial:", e);
+    resultsEl.innerHTML = '<div class="prode-empty">Error al buscar historial</div>';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Historial search event handlers
+document.getElementById("historialSearchBtn").addEventListener("click", () => {
+  searchHistorial(document.getElementById("historialInput").value);
+});
+document.getElementById("historialInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") searchHistorial(e.target.value);
 });
 </script>
 </body>
