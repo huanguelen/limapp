@@ -605,52 +605,60 @@ async function fetchHtmlSinglePage(url) {
   throw new Error("No se pudo obtener la página. Usá 'PEGAR HTML' como alternativa.");
 }
 
-// Detect max page from pagination links in HTML
+// Detect max page from pagination links using regex on raw HTML
 function detectMaxPage(html) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
   let maxPage = 1;
-  // Look for pagination links with ?page=N
-  const links = doc.querySelectorAll('a[href*="page="]');
-  for (const link of links) {
-    const match = link.href.match(/[?&]page=(\d+)/);
-    if (match) {
-      const p = parseInt(match[1], 10);
-      if (p > maxPage) maxPage = p;
-    }
+  const regex = /[?&]page=(\d+)/g;
+  let match;
+  while ((match = regex.exec(html)) !== null) {
+    const p = parseInt(match[1], 10);
+    if (p > maxPage) maxPage = p;
   }
   return maxPage;
 }
 
+// Check if a FECHA N heading exists in raw HTML
+function htmlContainsFecha(html, fechaNum) {
+  // Match the exact heading text inside jsrow-matchday-name elements
+  const regex = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
+  return regex.test(html);
+}
+
+// Build page URL from base URL and page number
+function buildPageUrl(baseUrl, page) {
+  // Strip any existing page param
+  let url = baseUrl.replace(/([?&])page=\d+/, '$1').replace(/[?&]$/, '');
+  url += (url.includes('?') ? '&' : '?') + `page=${page}`;
+  return url;
+}
+
 // Fetch HTML iterating through all pages until the fecha is found
 async function fetchHtml(baseUrl, fechaNum) {
-  // Strip any existing page param from base URL
-  const cleanUrl = baseUrl.replace(/[?&]page=\d+/, '').replace(/[?&]$/, '');
+  // 1. Fetch the base URL as-is first
+  const firstHtml = await fetchHtmlSinglePage(baseUrl);
 
-  // Fetch page 1 first
-  const firstPageUrl = cleanUrl + (cleanUrl.includes('?') ? '&' : '?') + 'page=1';
-  const firstHtml = await fetchHtmlSinglePage(firstPageUrl);
+  // Check if fecha exists in this page
+  if (htmlContainsFecha(firstHtml, fechaNum)) return firstHtml;
 
-  // Check if fecha exists in page 1
-  const parser = new DOMParser();
-  const doc1 = parser.parseFromString(firstHtml, "text/html");
-  const headings1 = doc1.querySelectorAll(".jsrow-matchday-name");
-  for (const h of headings1) {
-    if (h.textContent.trim() === `FECHA ${fechaNum}`) return firstHtml;
-  }
-
-  // Not found — detect total pages and try remaining
+  // 2. Detect total pages from this HTML
   const maxPage = detectMaxPage(firstHtml);
-  for (let page = 2; page <= maxPage; page++) {
-    const pageUrl = cleanUrl + (cleanUrl.includes('?') ? '&' : '?') + `page=${page}`;
+  console.log(`[Paginación] FECHA ${fechaNum} no está en página actual. Páginas detectadas: ${maxPage}`);
+
+  // 3. Try all pages (including explicit page=1 if current was different)
+  for (let page = 1; page <= maxPage; page++) {
+    const pageUrl = buildPageUrl(baseUrl, page);
+    // Skip if it's the same URL we already fetched
+    if (pageUrl === baseUrl || pageUrl === baseUrl + '?page=1') {
+      // Already checked the base URL, check page=1 only if base didn't have page param
+      if (page === 1 && !baseUrl.includes('page=')) continue;
+    }
     try {
+      console.log(`[Paginación] Buscando FECHA ${fechaNum} en página ${page}...`);
       const html = await fetchHtmlSinglePage(pageUrl);
-      const doc = parser.parseFromString(html, "text/html");
-      const headings = doc.querySelectorAll(".jsrow-matchday-name");
-      for (const h of headings) {
-        if (h.textContent.trim() === `FECHA ${fechaNum}`) return html;
-      }
-    } catch (e) { /* try next page */ }
+      if (htmlContainsFecha(html, fechaNum)) return html;
+    } catch (e) {
+      console.warn(`[Paginación] Error en página ${page}:`, e.message);
+    }
   }
 
   throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} página(s). Verificá el número de fecha.`);
@@ -897,7 +905,7 @@ async function doUpdateResults(key) {
 
   // Disable all update buttons
   document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = true; b.textContent = "⏳"; });
-  setMsg("resultsMsg", "", "");
+  setMsg("resultsMsg", '<span class="spinner"></span>Buscando resultados (recorriendo paginado)...', "info");
 
   try {
     const html = await fetchHtml(url, fechaNum);
