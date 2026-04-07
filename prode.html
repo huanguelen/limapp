@@ -862,11 +862,7 @@ document.getElementById("forgotForm").addEventListener("submit", async () => {
   btn.disabled = true;
   btn.textContent = "ENVIANDO...";
   try {
-    const actionCodeSettings = {
-      url: location.origin + "/reset-password.html",
-      handleCodeInApp: true
-    };
-    await _sendResetEmail(auth, email, actionCodeSettings);
+    await _sendResetEmail(auth, email);
     msgEl.textContent = "✓ Te enviamos un email con el enlace para restablecer tu contraseña. Revisá tu casilla (y spam).";
     msgEl.style.color = "var(--win)";
     btn.textContent = "ENVIADO ✓";
