@@ -1506,11 +1506,13 @@ async function searchHistorial(teamName) {
       cs.gf += (m.golLima || 0);
       cs.gc += (m.golRival || 0);
 
-      // goleadores can be array or object (Firebase converts arrays to objects)
+      // goleadores: Firebase stores as {name: 1, ...} object or could be array
       const gols = m.goleadores;
-      if (gols) {
-        const entries = Array.isArray(gols) ? gols : Object.values(gols);
-        for (const g of entries) {
+      if (gols && typeof gols === "object") {
+        // If it's an object like {"PLAYER *": 1, ...}, keys are the names
+        // If it's an array like ["PLAYER *", ...], iterate directly
+        const names = Array.isArray(gols) ? gols : Object.keys(gols);
+        for (const g of names) {
           if (typeof g !== "string" || !g.trim()) continue;
           const name = g.replace(/\s*\*\s*$/, "").trim();
           if (!name) continue;
