@@ -1434,10 +1434,8 @@ document.getElementById("prodeList").addEventListener("input", (e) => {
 // ═══════════════════════════════════════════
 // HISTORIAL VS RIVAL — SEARCH
 // ═══════════════════════════════════════════
-let historialCache = null; // cache all records
 
 async function fetchHistorial() {
-  if (historialCache) return historialCache;
   const snap = await _dbGet(_dbRef(db, "lima/partidos"));
   const all = snap.val();
   if (!all) return null;
@@ -1446,7 +1444,6 @@ async function fetchHistorial() {
   for (const [key, m] of Object.entries(all)) {
     if (m.tipo === "historial_geba") records.push(m);
   }
-  historialCache = records;
   return records;
 }
 
