@@ -520,39 +520,81 @@ function parseGEBA(html, fechaNum) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(pageHtml, "text/html");
 
-    // Find the matchday heading for FECHA N
-    const headings = doc.querySelectorAll(".jsrow-matchday-name");
-    let headingEl = null;
-    for (const h of headings) {
-      if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
-    }
-    if (!headingEl) continue; // this page doesn't have the fecha
+    // Detect layout: desktop (jstable-row) vs mobile (jsMobileMatchCont)
+    const hasDesktop = doc.querySelector(".jsrow-matchday-name") != null;
+    const hasMobile = doc.querySelector(".jsMobileMatchCont") != null;
+    console.log(`[parseGEBA] Página: desktop=${hasDesktop}, mobile=${hasMobile}`);
 
-    // Walk sibling rows from the heading's parent
-    const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
     const matchRows = [];
-    let sibling = headingRow.nextElementSibling;
-    while (sibling) {
-      if (sibling.querySelector(".jsrow-matchday-name")) break; // next fecha
-      if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
-      sibling = sibling.nextElementSibling;
+
+    // Try desktop layout first
+    if (hasDesktop) {
+      const headings = doc.querySelectorAll(".jsrow-matchday-name");
+      let headingEl = null;
+      for (const h of headings) {
+        if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
+      }
+      if (headingEl) {
+        const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
+        let sibling = headingRow.nextElementSibling;
+        while (sibling) {
+          if (sibling.querySelector(".jsrow-matchday-name")) break;
+          if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
+          sibling = sibling.nextElementSibling;
+        }
+        console.log(`[parseGEBA] Desktop: ${matchRows.length} filas para FECHA ${fechaNum}`);
+      }
     }
+
+    // Try mobile layout if desktop didn't find matches
+    if (matchRows.length === 0 && hasMobile) {
+      const allContainers = doc.querySelectorAll(".jsMobileMatchCont");
+      let inFecha = false;
+      for (const cont of allContainers) {
+        const mdayEl = cont.querySelector(".jsDivMobileMdayName");
+        if (mdayEl) {
+          inFecha = mdayEl.textContent.trim() === `FECHA ${fechaNum}`;
+        }
+        if (inFecha) matchRows.push(cont);
+      }
+      console.log(`[parseGEBA] Mobile: ${matchRows.length} containers para FECHA ${fechaNum}`);
+    }
+
+    if (matchRows.length === 0) continue;
+
+    // Determine if we're parsing mobile containers
+    const isMobile = matchRows[0]?.classList?.contains("jsMobileMatchCont")
+      || matchRows[0]?.className?.includes?.("jsMobileMatchCont");
 
     let currentDate = lastDate;
     let currentMatches = [];
 
     for (const row of matchRows) {
-      const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
+      // Extract date depending on layout
+      let rawDate = "";
+      if (!isMobile) {
+        const timeCell = row.querySelector(".jsMatchDivTime .jsDivLineEmbl");
+        if (timeCell) rawDate = timeCell.textContent.trim();
+      } else {
+        const infoEl = row.querySelector(".jsMatchDivInfo");
+        if (infoEl) {
+          for (const node of infoEl.childNodes) {
+            if (node.nodeType === 3) rawDate += node.textContent;
+          }
+          rawDate = rawDate.trim();
+        }
+      }
+
       const homeCell = row.querySelector(".jsMatchDivHome .js_div_particName a");
       const awayCell = row.querySelector(".jsMatchDivAway .js_div_particName a");
 
-      if (timeCell && homeCell && awayCell) {
-        const rawDate = timeCell.textContent.trim();
-        const dateOnly = rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase();
+      if (homeCell && awayCell) {
+        const dateOnly = rawDate
+          ? rawDate.replace(/,\s*/, " ").replace(/\s+\d{1,2}:\d{2}$/, "").toUpperCase()
+          : currentDate || "POR DEFINIR";
 
         if (dateOnly !== currentDate) {
           if (currentDate && currentMatches.length) {
-            // Merge with existing group if same date from previous page
             const existingGroup = allGroups.find(g => g.date === currentDate);
             if (existingGroup) {
               existingGroup.matches.push(...currentMatches);
@@ -586,18 +628,26 @@ function parseGEBA(html, fechaNum) {
     if (currentDate && currentMatches.length) {
       const existingGroup = allGroups.find(g => g.date === currentDate);
       if (existingGroup) {
-        existingGroup.matches.push(...currentMatches);
+        // Deduplicate: skip matches already present
+        for (const m of currentMatches) {
+          const dup = existingGroup.matches.find(e => e.home === m.home && e.away === m.away);
+          if (!dup) existingGroup.matches.push(m);
+          else if (m.homeScore != null && dup.homeScore == null) {
+            dup.homeScore = m.homeScore; dup.awayScore = m.awayScore;
+          }
+        }
       } else {
         allGroups.push({ date: currentDate, matches: [...currentMatches] });
       }
     }
-    // Remember last date for continuity between pages
     if (currentDate) lastDate = currentDate;
   }
 
   if (allGroups.length === 0) throw new Error(`No se encontraron partidos en FECHA ${fechaNum}`);
 
   const totalMatches = allGroups.reduce((s, g) => s + g.matches.length, 0);
+  console.log(`[parseGEBA] Resultado: ${totalMatches} partidos en ${allGroups.length} grupo(s)`);
+  allGroups.forEach(g => g.matches.forEach(m => console.log(`  ${m.home} vs ${m.away} | ${m.homeScore ?? '-'} - ${m.awayScore ?? '-'}`)));
   return { numero: fechaNum, groups: allGroups, totalMatches };
 }
 
@@ -605,23 +655,49 @@ function parseGEBA(html, fechaNum) {
 // FETCH from URL via CORS proxy
 // ═══════════════════════════════════════════
 const CORS_PROXIES = [
-  url => `/api/proxy?url=${encodeURIComponent(url)}`,
-  url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  { name: "proxy local", fn: url => `/api/proxy?url=${encodeURIComponent(url)}` },
+  { name: "codetabs",    fn: url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}` },
+  { name: "corsproxy",   fn: url => `https://corsproxy.io/?${encodeURIComponent(url)}` },
+  { name: "allorigins",  fn: url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
 ];
 
-async function fetchHtmlSinglePage(url) {
-  for (const proxy of CORS_PROXIES) {
+// Fetch with a hard timeout using AbortController (works in all browsers)
+function fetchWithTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
+function isValidGebaHtml(text) {
+  return text.length > 1000 && (
+    text.includes("jstable") ||
+    text.includes("jsMobileMatchCont") ||
+    text.includes("jsMatchDiv")
+  );
+}
+
+async function fetchHtmlSinglePage(url, onProgress) {
+  for (const { name, fn } of CORS_PROXIES) {
+    const proxyUrl = fn(url);
+    onProgress?.(`Intentando ${name}...`);
+    console.log(`[proxy] Intentando ${name}: ${proxyUrl.substring(0, 80)}...`);
     try {
-      const resp = await fetch(proxy(url), { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) continue;
+      const resp = await fetchWithTimeout(proxyUrl, 8000);
+      if (!resp.ok) {
+        console.log(`[proxy] ${name}: HTTP ${resp.status}`);
+        continue;
+      }
       const text = await resp.text();
-      // Validate we got actual HTML, not an error page
-      if (text.length > 1000 && text.includes("jstable")) return text;
-    } catch (e) { /* try next proxy */ }
+      if (isValidGebaHtml(text)) {
+        console.log(`[proxy] ${name}: OK (${text.length} bytes)`);
+        return text;
+      }
+      console.log(`[proxy] ${name}: respuesta inválida (${text.length} bytes)`);
+    } catch (e) {
+      console.log(`[proxy] ${name}: ${e.name === "AbortError" ? "timeout" : e.message}`);
+    }
   }
-  throw new Error("No se pudo obtener la página. Usá 'PEGAR HTML' como alternativa.");
+  throw new Error("No se pudo obtener la página (todos los proxies fallaron). Usá 'PEGAR HTML' como alternativa.");
 }
 
 // Detect max page from pagination links using regex on raw HTML
@@ -636,11 +712,11 @@ function detectMaxPage(html) {
   return maxPage;
 }
 
-// Check if a FECHA N heading exists in raw HTML
+// Check if a FECHA N heading exists in raw HTML (desktop or mobile layout)
 function htmlContainsFecha(html, fechaNum) {
-  // Match the exact heading text inside jsrow-matchday-name elements
-  const regex = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
-  return regex.test(html);
+  const rxDesktop = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
+  const rxMobile = new RegExp(`class="jsDivMobileMdayName"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
+  return rxDesktop.test(html) || rxMobile.test(html);
 }
 
 // Build page URL from base URL and page number
@@ -651,52 +727,47 @@ function buildPageUrl(baseUrl, page) {
   return url;
 }
 
-// Fetch ALL pages that contain the fecha (a fecha can span multiple pages)
-async function fetchHtml(baseUrl, fechaNum) {
-  // 1. Fetch the base URL as-is first
-  const firstHtml = await fetchHtmlSinglePage(baseUrl);
+// Fetch pages that contain the fecha. onProgress(msg) updates UI.
+async function fetchHtml(baseUrl, fechaNum, onProgress) {
+  const log = msg => { console.log(msg); onProgress?.(msg); };
 
-  // 2. Detect total pages from this HTML
+  // 1. Fetch the base URL
+  log('Obteniendo página principal...');
+  const firstHtml = await fetchHtmlSinglePage(baseUrl, onProgress);
   const maxPage = detectMaxPage(firstHtml);
-  console.log(`[Paginación] Páginas detectadas: ${maxPage}`);
 
   // If only 1 page, return it directly
-  if (maxPage <= 1) return [firstHtml];
-
-  // 3. Fetch ALL pages and collect those that contain the fecha
-  const allPages = [];
-  // We already have the first page (base URL, which is usually page=2 or default)
-  const baseIsPage = baseUrl.match(/[?&]page=(\d+)/);
-  const basePage = baseIsPage ? parseInt(baseIsPage[1], 10) : null;
-
-  for (let page = 1; page <= maxPage; page++) {
-    // Reuse already-fetched page if possible
-    if ((basePage === page) || (basePage === null && page === 1)) {
-      // Check if base URL without page param is same as page 1
-      if (htmlContainsFecha(firstHtml, fechaNum)) {
-        allPages.push(firstHtml);
-      }
-      continue;
+  if (maxPage <= 1) {
+    if (!htmlContainsFecha(firstHtml, fechaNum)) {
+      throw new Error(`No se encontró FECHA ${fechaNum}. Verificá el número de fecha.`);
     }
+    return [firstHtml];
+  }
 
+  log(`${maxPage} páginas detectadas, buscando FECHA ${fechaNum}...`);
+
+  // The default URL often has all the data
+  if (htmlContainsFecha(firstHtml, fechaNum)) {
+    log(`FECHA ${fechaNum} encontrada ✓`);
+    return [firstHtml];
+  }
+
+  // Search each numbered page
+  for (let page = 1; page <= maxPage; page++) {
     const pageUrl = buildPageUrl(baseUrl, page);
     try {
-      console.log(`[Paginación] Obteniendo página ${page}/${maxPage}...`);
-      const html = await fetchHtmlSinglePage(pageUrl);
+      log(`Buscando en página ${page} de ${maxPage}...`);
+      const html = await fetchHtmlSinglePage(pageUrl, onProgress);
       if (htmlContainsFecha(html, fechaNum)) {
-        allPages.push(html);
+        log(`FECHA ${fechaNum} encontrada en página ${page} ✓`);
+        return [html];
       }
     } catch (e) {
-      console.warn(`[Paginación] Error en página ${page}:`, e.message);
+      log(`Error en página ${page}, continuando...`);
     }
   }
 
-  if (allPages.length === 0) {
-    throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} página(s). Verificá el número de fecha.`);
-  }
-
-  console.log(`[Paginación] FECHA ${fechaNum} encontrada en ${allPages.length} página(s)`);
-  return allPages;
+  throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} páginas.`);
 }
 
 function setMsg(id, text, type) {
@@ -713,16 +784,20 @@ async function doFetch() {
   if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
 
   document.getElementById("btnFetch").disabled = true;
-  setMsg("fetchMsg", '<span class="spinner"></span>Obteniendo datos (buscando en paginado)...', "info");
+  setMsg("fetchMsg", '<span class="spinner"></span>Conectando...', "info");
 
   try {
-    const html = await fetchHtml(url, num);
+    const html = await fetchHtml(url, num, msg => {
+      setMsg("fetchMsg", `<span class="spinner"></span>${msg}`, "info");
+    });
+    setMsg("fetchMsg", '<span class="spinner"></span>Parseando partidos...', "info");
     const data = parseGEBA(html, num);
     previewData = data;
     showPreview(data);
     setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados`, "ok");
   } catch (err) {
-    setMsg("fetchMsg", err.message, "error");
+    console.error("doFetch error:", err);
+    setMsg("fetchMsg", "✕ " + err.message, "error");
   } finally {
     document.getElementById("btnFetch").disabled = false;
   }
@@ -938,18 +1013,23 @@ async function doUpdateResults(key) {
 
   const fechaNum = stored.numero;
 
-  // Disable all update buttons
+  // Disable all update buttons and show progress in the visible fetchMsg area
   document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = true; b.textContent = "⏳"; });
-  setMsg("resultsMsg", '<span class="spinner"></span>Buscando resultados (recorriendo paginado)...', "info");
+  setMsg("fetchMsg", '<span class="spinner"></span>Buscando resultados...', "info");
 
   try {
-    const html = await fetchHtml(url, fechaNum);
+    const html = await fetchHtml(url, fechaNum, msg => {
+      setMsg("fetchMsg", `<span class="spinner"></span>${msg}`, "info");
+    });
+    setMsg("fetchMsg", '<span class="spinner"></span>Parseando resultados...', "info");
     const freshData = parseGEBA(html, fechaNum);
 
     pendingResults = { key, stored, freshData };
     showResultsPreview(freshData, stored);
+    setMsg("fetchMsg", `✓ ${freshData.totalMatches} partidos con resultados`, "ok");
   } catch (err) {
-    alert("Error: " + err.message);
+    console.error("doUpdateResults error:", err);
+    setMsg("fetchMsg", "✕ " + err.message, "error");
   } finally {
     document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = false; b.textContent = "🔄"; });
   }
