@@ -744,30 +744,31 @@ async function fetchHtml(baseUrl, fechaNum, onProgress) {
     return [firstHtml];
   }
 
-  log(`${maxPage} páginas detectadas, buscando FECHA ${fechaNum}...`);
+  // Multiple pages: fetch ALL numbered pages and collect those with the fecha
+  // (skip default page to avoid duplicates — numbered pages cover everything)
+  log(`${maxPage} páginas detectadas, buscando FECHA ${fechaNum} en todas...`);
+  const allPages = [];
 
-  // The default URL often has all the data
-  if (htmlContainsFecha(firstHtml, fechaNum)) {
-    log(`FECHA ${fechaNum} encontrada ✓`);
-    return [firstHtml];
-  }
-
-  // Search each numbered page
   for (let page = 1; page <= maxPage; page++) {
     const pageUrl = buildPageUrl(baseUrl, page);
     try {
-      log(`Buscando en página ${page} de ${maxPage}...`);
+      log(`Obteniendo página ${page} de ${maxPage}...`);
       const html = await fetchHtmlSinglePage(pageUrl, onProgress);
       if (htmlContainsFecha(html, fechaNum)) {
+        allPages.push(html);
         log(`FECHA ${fechaNum} encontrada en página ${page} ✓`);
-        return [html];
       }
     } catch (e) {
       log(`Error en página ${page}, continuando...`);
     }
   }
 
-  throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} páginas.`);
+  if (allPages.length === 0) {
+    throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} páginas.`);
+  }
+
+  log(`FECHA ${fechaNum} en ${allPages.length} página(s) ✓`);
+  return allPages;
 }
 
 function setMsg(id, text, type) {
