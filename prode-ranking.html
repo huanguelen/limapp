@@ -427,8 +427,16 @@
     .chart-legend-item {
       display: flex; align-items: center; gap: 5px;
       font-family: "Inter", system-ui, sans-serif; font-size: 11px;
-      color: var(--text-2);
+      color: var(--text-2); cursor: pointer; padding: 3px 8px;
+      border-radius: 6px; transition: all .2s;
+      border: 1px solid transparent;
     }
+    .chart-legend-item:hover { background: rgba(255,255,255,.05); }
+    .chart-legend-item.active {
+      background: rgba(0,174,239,.12); border-color: rgba(0,174,239,.3);
+      color: #fff;
+    }
+    .chart-legend-item.dimmed { opacity: .35; }
     .chart-legend-color {
       width: 14px; height: 4px; border-radius: 2px;
     }
@@ -823,10 +831,16 @@ const CHART_COLORS = [
   "#94a3b8", "#facc15", "#22d3ee", "#c084fc", "#fb7185"
 ];
 
+let _chartSeries = [];
+let _chartFechaKeys = [];
+let _highlightIdx = -1; // -1 = none highlighted (show all)
+
 function openChart() {
   if (!_scoringData || !_fechasData) return;
+  _highlightIdx = -1;
   const overlay = document.getElementById("chartOverlay");
   overlay.classList.add("open");
+  buildChartData();
   drawChart();
 }
 
@@ -834,51 +848,48 @@ function closeChart() {
   document.getElementById("chartOverlay").classList.remove("open");
 }
 
+function buildChartData() {
+  _chartFechaKeys = Object.keys(_fechasData).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  );
+
+  _chartSeries = [];
+  for (const [uid, data] of Object.entries(_scoringData)) {
+    const name = data.nombre || formatName(data.email) || uid.substring(0, 12);
+    const points = [];
+    let cumulative = 0;
+    for (const key of _chartFechaKeys) {
+      if (data.fechas && data.fechas[key]) {
+        cumulative += data.fechas[key].puntos || 0;
+      }
+      points.push(cumulative);
+    }
+    _chartSeries.push({ name, points });
+  }
+  // Sort by final score descending
+  _chartSeries.sort((a, b) => b.points[b.points.length - 1] - a.points[a.points.length - 1]);
+}
+
 function drawChart() {
   const canvas = document.getElementById("chartCanvas");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
 
-  // Set canvas resolution
   const rect = canvas.getBoundingClientRect();
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width, H = rect.height;
 
-  // Sorted fecha keys
-  const fechaKeys = Object.keys(_fechasData).sort((a, b) =>
-    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  const fechaKeys = _chartFechaKeys;
+  const series = _chartSeries;
   if (fechaKeys.length === 0) return;
 
-  // Build data series: each participant's cumulative points per fecha
-  const series = [];
-  for (const [uid, data] of Object.entries(_scoringData)) {
-    const name = data.nombre || formatName(data.email) || uid.substring(0, 12);
-    const points = [];
-    let cumulative = 0;
-    for (const key of fechaKeys) {
-      if (data.fechas && data.fechas[key]) {
-        cumulative += data.fechas[key].puntos || 0;
-      }
-      points.push(cumulative);
-    }
-    series.push({ name, points });
-  }
-
-  // Sort series by final score descending
-  series.sort((a, b) => b.points[b.points.length - 1] - a.points[a.points.length - 1]);
-
-  // Chart margins
   const ml = 40, mr = 16, mt = 20, mb = 50;
   const cw = W - ml - mr;
   const ch = H - mt - mb;
-
-  // Max value
   const maxVal = Math.max(1, ...series.map(s => Math.max(...s.points)));
 
-  // Clear
   ctx.clearRect(0, 0, W, H);
 
   // Grid lines
@@ -888,14 +899,13 @@ function drawChart() {
   for (let i = 0; i <= gridLines; i++) {
     const y = mt + ch - (ch * i / gridLines);
     ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(W - mr, y); ctx.stroke();
-    // Y label
     ctx.fillStyle = "#6b7599";
     ctx.font = "11px Inter, sans-serif";
     ctx.textAlign = "right";
     ctx.fillText(Math.round(maxVal * i / gridLines), ml - 6, y + 4);
   }
 
-  // X labels (fecha abbreviations)
+  // X labels
   ctx.textAlign = "center";
   ctx.fillStyle = "#6b7599";
   ctx.font = "10px 'Bebas Neue', sans-serif";
@@ -911,8 +921,12 @@ function drawChart() {
   // Draw lines
   series.forEach((s, idx) => {
     const color = CHART_COLORS[idx % CHART_COLORS.length];
+    const isHighlighted = _highlightIdx === idx;
+    const isDimmed = _highlightIdx >= 0 && !isHighlighted;
+
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.globalAlpha = isDimmed ? 0.12 : 1;
+    ctx.lineWidth = isHighlighted ? 4 : 2;
     ctx.lineJoin = "round";
     ctx.beginPath();
     for (let i = 0; i < s.points.length; i++) {
@@ -923,24 +937,53 @@ function drawChart() {
     }
     ctx.stroke();
 
-    // Draw dots
+    // Dots
+    const dotR = isHighlighted ? 5 : 3;
     for (let i = 0; i < s.points.length; i++) {
       const x = ml + (cw * i / (Math.max(1, fechaKeys.length - 1)));
       const y = mt + ch - (ch * s.points[i] / maxVal);
       ctx.fillStyle = color;
-      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, dotR, 0, Math.PI * 2); ctx.fill();
     }
+
+    // Show point values on highlighted line
+    if (isHighlighted) {
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px Inter, sans-serif";
+      ctx.textAlign = "center";
+      for (let i = 0; i < s.points.length; i++) {
+        const x = ml + (cw * i / (Math.max(1, fechaKeys.length - 1)));
+        const y = mt + ch - (ch * s.points[i] / maxVal);
+        ctx.fillText(s.points[i], x, y - 10);
+      }
+    }
+
+    ctx.globalAlpha = 1;
   });
 
   // Legend
+  renderChartLegend();
+}
+
+function renderChartLegend() {
   const legendEl = document.getElementById("chartLegend");
-  legendEl.innerHTML = series.map((s, idx) => {
+  legendEl.innerHTML = _chartSeries.map((s, idx) => {
     const color = CHART_COLORS[idx % CHART_COLORS.length];
-    return `<div class="chart-legend-item">
+    const activeClass = _highlightIdx === idx ? "active" : (_highlightIdx >= 0 ? "dimmed" : "");
+    return `<div class="chart-legend-item ${activeClass}" data-idx="${idx}">
       <span class="chart-legend-color" style="background:${color}"></span>
       ${esc(s.name)}
     </div>`;
   }).join("");
+
+  // Click handlers on legend items
+  legendEl.querySelectorAll(".chart-legend-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const idx = parseInt(item.dataset.idx, 10);
+      _highlightIdx = _highlightIdx === idx ? -1 : idx;
+      drawChart();
+    });
+  });
 }
 
 document.getElementById("btnChart").addEventListener("click", openChart);
