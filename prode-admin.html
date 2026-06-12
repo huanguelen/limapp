@@ -385,7 +385,7 @@
       <input class="admin-field" type="url" id="sourceUrl"
         placeholder="URL (ej: https://www.futbolmayores.geba.org.ar/...)"
         value="https://www.futbolmayores.geba.org.ar/index.php/torneos-21/apertura-2/junior/calendar/347-2026-junior-apertura">
-      <input class="admin-field admin-field-sm" type="number" id="fechaNum" placeholder="Nº" min="1" max="30" value="">
+      <input class="admin-field" style="max-width:200px" type="text" id="fechaNum" placeholder="Nº o nombre de fecha" value="">
     </div>
 
     <div class="btn-row">
@@ -527,12 +527,21 @@ function parseGEBA(html, fechaNum) {
 
     const matchRows = [];
 
+    // Build possible heading names to match (case-insensitive)
+    const fechaUpper = String(fechaNum).toUpperCase();
+    const possibleNames = [fechaUpper];
+    // If fechaNum is purely numeric, also match "FECHA N"
+    if (/^\d+$/.test(String(fechaNum))) {
+      possibleNames.push(`FECHA ${fechaNum}`);
+    }
+    const matchesHeading = (text) => possibleNames.includes(text.trim().toUpperCase());
+
     // Try desktop layout first
     if (hasDesktop) {
       const headings = doc.querySelectorAll(".jsrow-matchday-name");
       let headingEl = null;
       for (const h of headings) {
-        if (h.textContent.trim() === `FECHA ${fechaNum}`) { headingEl = h; break; }
+        if (matchesHeading(h.textContent)) { headingEl = h; break; }
       }
       if (headingEl) {
         const headingRow = headingEl.closest(".jstable-row") || headingEl.parentElement;
@@ -542,7 +551,7 @@ function parseGEBA(html, fechaNum) {
           if (sibling.classList.contains("jstable-row")) matchRows.push(sibling);
           sibling = sibling.nextElementSibling;
         }
-        console.log(`[parseGEBA] Desktop: ${matchRows.length} filas para FECHA ${fechaNum}`);
+        console.log(`[parseGEBA] Desktop: ${matchRows.length} filas para ${fechaUpper}`);
       }
     }
 
@@ -553,11 +562,11 @@ function parseGEBA(html, fechaNum) {
       for (const cont of allContainers) {
         const mdayEl = cont.querySelector(".jsDivMobileMdayName");
         if (mdayEl) {
-          inFecha = mdayEl.textContent.trim() === `FECHA ${fechaNum}`;
+          inFecha = matchesHeading(mdayEl.textContent);
         }
         if (inFecha) matchRows.push(cont);
       }
-      console.log(`[parseGEBA] Mobile: ${matchRows.length} containers para FECHA ${fechaNum}`);
+      console.log(`[parseGEBA] Mobile: ${matchRows.length} containers para ${fechaUpper}`);
     }
 
     if (matchRows.length === 0) continue;
@@ -643,7 +652,7 @@ function parseGEBA(html, fechaNum) {
     if (currentDate) lastDate = currentDate;
   }
 
-  if (allGroups.length === 0) throw new Error(`No se encontraron partidos en FECHA ${fechaNum}`);
+  if (allGroups.length === 0) throw new Error(`No se encontraron partidos para "${fechaNum}"`);
 
   const totalMatches = allGroups.reduce((s, g) => s + g.matches.length, 0);
   console.log(`[parseGEBA] Resultado: ${totalMatches} partidos en ${allGroups.length} grupo(s)`);
@@ -712,11 +721,19 @@ function detectMaxPage(html) {
   return maxPage;
 }
 
-// Check if a FECHA N heading exists in raw HTML (desktop or mobile layout)
+// Check if a fecha heading exists in raw HTML (desktop or mobile layout)
 function htmlContainsFecha(html, fechaNum) {
-  const rxDesktop = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
-  const rxMobile = new RegExp(`class="jsDivMobileMdayName"[^>]*>\\s*FECHA\\s+${fechaNum}\\s*<`, 'i');
-  return rxDesktop.test(html) || rxMobile.test(html);
+  const escaped = String(fechaNum).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match the heading text directly (e.g. "Octogonal partido 1")
+  const rxDesktopDirect = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*${escaped}\\s*<`, 'i');
+  const rxMobileDirect = new RegExp(`class="jsDivMobileMdayName"[^>]*>\\s*${escaped}\\s*<`, 'i');
+  // Also match "FECHA N" format if fechaNum is purely numeric
+  if (/^\d+$/.test(String(fechaNum))) {
+    const rxDesktop = new RegExp(`class="jsrow-matchday-name"[^>]*>\\s*FECHA\\s+${escaped}\\s*<`, 'i');
+    const rxMobile = new RegExp(`class="jsDivMobileMdayName"[^>]*>\\s*FECHA\\s+${escaped}\\s*<`, 'i');
+    return rxDesktop.test(html) || rxMobile.test(html) || rxDesktopDirect.test(html) || rxMobileDirect.test(html);
+  }
+  return rxDesktopDirect.test(html) || rxMobileDirect.test(html);
 }
 
 // Build page URL from base URL and page number
@@ -739,14 +756,14 @@ async function fetchHtml(baseUrl, fechaNum, onProgress) {
   // If only 1 page, return it directly
   if (maxPage <= 1) {
     if (!htmlContainsFecha(firstHtml, fechaNum)) {
-      throw new Error(`No se encontró FECHA ${fechaNum}. Verificá el número de fecha.`);
+      throw new Error(`No se encontró "${fechaNum}". Verificá el nombre/número de fecha.`);
     }
     return [firstHtml];
   }
 
   // Multiple pages: fetch ALL numbered pages and collect those with the fecha
   // (skip default page to avoid duplicates — numbered pages cover everything)
-  log(`${maxPage} páginas detectadas, buscando FECHA ${fechaNum} en todas...`);
+  log(`${maxPage} páginas detectadas, buscando "${fechaNum}" en todas...`);
   const allPages = [];
 
   for (let page = 1; page <= maxPage; page++) {
@@ -756,7 +773,7 @@ async function fetchHtml(baseUrl, fechaNum, onProgress) {
       const html = await fetchHtmlSinglePage(pageUrl, onProgress);
       if (htmlContainsFecha(html, fechaNum)) {
         allPages.push(html);
-        log(`FECHA ${fechaNum} encontrada en página ${page} ✓`);
+        log(`"${fechaNum}" encontrada en página ${page} ✓`);
       }
     } catch (e) {
       log(`Error en página ${page}, continuando...`);
@@ -764,10 +781,10 @@ async function fetchHtml(baseUrl, fechaNum, onProgress) {
   }
 
   if (allPages.length === 0) {
-    throw new Error(`No se encontró FECHA ${fechaNum} en ninguna de las ${maxPage} páginas.`);
+    throw new Error(`No se encontró "${fechaNum}" en ninguna de las ${maxPage} páginas.`);
   }
 
-  log(`FECHA ${fechaNum} en ${allPages.length} página(s) ✓`);
+  log(`"${fechaNum}" en ${allPages.length} página(s) ✓`);
   return allPages;
 }
 
@@ -780,9 +797,9 @@ function setMsg(id, text, type) {
 // ── Fetch & Parse ──
 async function doFetch() {
   const url = document.getElementById("sourceUrl").value.trim();
-  const num = parseInt(document.getElementById("fechaNum").value, 10);
+  const num = document.getElementById("fechaNum").value.trim();
   if (!url) { setMsg("fetchMsg", "Ingresá la URL", "error"); return; }
-  if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
+  if (!num) { setMsg("fetchMsg", "Ingresá el número o nombre de fecha", "error"); return; }
 
   document.getElementById("btnFetch").disabled = true;
   setMsg("fetchMsg", '<span class="spinner"></span>Conectando...', "info");
@@ -814,9 +831,9 @@ window.toggleManual = toggleManual;
 
 function parseManualHtml() {
   const html = document.getElementById("manualHtml").value;
-  const num = parseInt(document.getElementById("fechaNum").value, 10);
+  const num = document.getElementById("fechaNum").value.trim();
   if (!html.trim()) { setMsg("fetchMsg", "Pegá el HTML primero", "error"); return; }
-  if (!num || num < 1) { setMsg("fetchMsg", "Ingresá el número de fecha", "error"); return; }
+  if (!num) { setMsg("fetchMsg", "Ingresá el número o nombre de fecha", "error"); return; }
 
   try {
     const data = parseGEBA(html, num);
@@ -936,7 +953,7 @@ function renderFechas(data, predCounts, totalUsers) {
     return;
   }
 
-  const sorted = Object.entries(data).sort((a, b) => Number(a[0]) - Number(b[0]));
+  const sorted = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
   let html = "";
   for (const [key, fecha] of sorted) {
     const totalMatches = fecha.groups
