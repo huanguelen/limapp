@@ -458,6 +458,12 @@ function esc(s) {
   return d.innerHTML;
 }
 
+// Abbreviate fecha name for pills: "Octogonal partido 1" → "OP1", "3" → "F3"
+function abreviarFecha(key) {
+  if (/^\d+$/.test(key)) return "F" + key;
+  return key.split(/\s+/).map(w => w[0]).join("").toUpperCase();
+}
+
 function formatName(email) {
   if (!email) return "";
   if (!email.includes("@")) return email;
@@ -627,7 +633,7 @@ function renderFechaSidebar() {
     return;
   }
 
-  const sorted = Object.entries(_fechasData).sort((a, b) => Number(a[0]) - Number(b[0]));
+  const sorted = Object.entries(_fechasData).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: 'base' }));
   let html = "";
   for (const [key, fecha] of sorted) {
     let hasScores = false;
@@ -637,7 +643,7 @@ function renderFechaSidebar() {
       }
     }
     html += `<button class="fecha-pill ${hasScores ? 'has-scores' : ''}" data-fecha="${esc(key)}" title="Fecha ${esc(key)}">
-      F${esc(key)}<span class="pill-dot"></span>
+      ${esc(abreviarFecha(key))}<span class="pill-dot"></span>
     </button>`;
   }
   container.innerHTML = html;
