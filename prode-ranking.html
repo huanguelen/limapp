@@ -370,6 +370,68 @@
       text-align: center; color: var(--text-3); padding: 24px;
       font-family: "Inter", system-ui, sans-serif; font-size: 13px;
     }
+
+    /* ── EVOLUTION CHART ── */
+    .ranking-title-row {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .btn-chart {
+      background: none; border: 1px solid rgba(0,174,239,.3);
+      color: var(--cyan); border-radius: 8px; padding: 6px 10px;
+      cursor: pointer; transition: all .2s; display: flex; align-items: center;
+    }
+    .btn-chart:active { transform: scale(.92); }
+    .btn-chart:hover { background: rgba(0,174,239,.1); border-color: var(--cyan); }
+    .btn-chart svg { width: 20px; height: 20px; }
+    .chart-overlay {
+      position: fixed; inset: 0; z-index: 110;
+      background: rgba(0,0,0,.85);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px; opacity: 0; pointer-events: none;
+      transition: opacity .25s;
+    }
+    .chart-overlay.open { opacity: 1; pointer-events: auto; }
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: 14px; width: 100%; max-width: 700px;
+      max-height: 90vh; display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 30px rgba(0,174,239,.1);
+      overflow: hidden;
+    }
+    .chart-header {
+      padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .chart-title {
+      font-family: "Bebas Neue", sans-serif; font-size: 18px;
+      letter-spacing: 3px; color: var(--cyan);
+    }
+    .chart-close {
+      background: none; border: none; color: var(--text-3);
+      font-size: 22px; cursor: pointer; padding: 4px 8px;
+      line-height: 1; transition: color .2s;
+    }
+    .chart-close:hover { color: var(--loss); }
+    .chart-body {
+      flex: 1; overflow: auto; padding: 16px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .chart-canvas {
+      width: 100%; max-width: 660px; height: 320px;
+      background: var(--surface-2); border-radius: 8px;
+    }
+    .chart-legend {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px;
+      justify-content: center;
+    }
+    .chart-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-family: "Inter", system-ui, sans-serif; font-size: 11px;
+      color: var(--text-2);
+    }
+    .chart-legend-color {
+      width: 14px; height: 4px; border-radius: 2px;
+    }
   </style>
 </head>
 
@@ -392,6 +454,20 @@
   </div>
 </div>
 
+<!-- Chart overlay -->
+<div class="chart-overlay" id="chartOverlay">
+  <div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">📈 EVOLUCIÓN DE PUNTAJES</span>
+      <button class="chart-close" id="chartClose">&times;</button>
+    </div>
+    <div class="chart-body">
+      <canvas class="chart-canvas" id="chartCanvas"></canvas>
+      <div class="chart-legend" id="chartLegend"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Fechas sidebar -->
 <div class="fechas-box" id="fechasBox" style="display:none">
   <div class="fechas-box-title">⚽ FECHAS</div>
@@ -400,7 +476,14 @@
 
 <div class="ranking-content">
   <div class="ranking-header">
-    <div class="ranking-title">🏆 RANKING PRODE</div>
+    <div class="ranking-title-row">
+      <div class="ranking-title">🏆 RANKING PRODE</div>
+      <button class="btn-chart" id="btnChart" title="Evolución de puntajes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </button>
+    </div>
     <div class="ranking-subtitle">POSICIONES ACUMULADAS · JUNIOR APERTURA 2026</div>
   </div>
 
@@ -729,6 +812,141 @@ function closeModal() {
 document.getElementById("modalClose").addEventListener("click", closeModal);
 document.getElementById("modalOverlay").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) closeModal();
+});
+
+// ═══════════════════════════════════════════
+// EVOLUTION CHART
+// ═══════════════════════════════════════════
+const CHART_COLORS = [
+  "#00AEEF", "#4ade80", "#fbbf24", "#f87171", "#a78bfa",
+  "#fb923c", "#38bdf8", "#e879f9", "#34d399", "#f472b6",
+  "#94a3b8", "#facc15", "#22d3ee", "#c084fc", "#fb7185"
+];
+
+function openChart() {
+  if (!_scoringData || !_fechasData) return;
+  const overlay = document.getElementById("chartOverlay");
+  overlay.classList.add("open");
+  drawChart();
+}
+
+function closeChart() {
+  document.getElementById("chartOverlay").classList.remove("open");
+}
+
+function drawChart() {
+  const canvas = document.getElementById("chartCanvas");
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set canvas resolution
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+
+  // Sorted fecha keys
+  const fechaKeys = Object.keys(_fechasData).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  );
+  if (fechaKeys.length === 0) return;
+
+  // Build data series: each participant's cumulative points per fecha
+  const series = [];
+  for (const [uid, data] of Object.entries(_scoringData)) {
+    const name = data.nombre || formatName(data.email) || uid.substring(0, 12);
+    const points = [];
+    let cumulative = 0;
+    for (const key of fechaKeys) {
+      if (data.fechas && data.fechas[key]) {
+        cumulative += data.fechas[key].puntos || 0;
+      }
+      points.push(cumulative);
+    }
+    series.push({ name, points });
+  }
+
+  // Sort series by final score descending
+  series.sort((a, b) => b.points[b.points.length - 1] - a.points[a.points.length - 1]);
+
+  // Chart margins
+  const ml = 40, mr = 16, mt = 20, mb = 50;
+  const cw = W - ml - mr;
+  const ch = H - mt - mb;
+
+  // Max value
+  const maxVal = Math.max(1, ...series.map(s => Math.max(...s.points)));
+
+  // Clear
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = "rgba(255,255,255,.06)";
+  ctx.lineWidth = 1;
+  const gridLines = 5;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = mt + ch - (ch * i / gridLines);
+    ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(W - mr, y); ctx.stroke();
+    // Y label
+    ctx.fillStyle = "#6b7599";
+    ctx.font = "11px Inter, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText(Math.round(maxVal * i / gridLines), ml - 6, y + 4);
+  }
+
+  // X labels (fecha abbreviations)
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#6b7599";
+  ctx.font = "10px 'Bebas Neue', sans-serif";
+  for (let i = 0; i < fechaKeys.length; i++) {
+    const x = ml + (cw * i / (Math.max(1, fechaKeys.length - 1)));
+    ctx.save();
+    ctx.translate(x, H - mb + 14);
+    ctx.rotate(-Math.PI / 6);
+    ctx.fillText(abreviarFecha(fechaKeys[i]), 0, 0);
+    ctx.restore();
+  }
+
+  // Draw lines
+  series.forEach((s, idx) => {
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let i = 0; i < s.points.length; i++) {
+      const x = ml + (cw * i / (Math.max(1, fechaKeys.length - 1)));
+      const y = mt + ch - (ch * s.points[i] / maxVal);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Draw dots
+    for (let i = 0; i < s.points.length; i++) {
+      const x = ml + (cw * i / (Math.max(1, fechaKeys.length - 1)));
+      const y = mt + ch - (ch * s.points[i] / maxVal);
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  });
+
+  // Legend
+  const legendEl = document.getElementById("chartLegend");
+  legendEl.innerHTML = series.map((s, idx) => {
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+    return `<div class="chart-legend-item">
+      <span class="chart-legend-color" style="background:${color}"></span>
+      ${esc(s.name)}
+    </div>`;
+  }).join("");
+}
+
+document.getElementById("btnChart").addEventListener("click", openChart);
+document.getElementById("chartClose").addEventListener("click", closeChart);
+document.getElementById("chartOverlay").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeChart();
 });
 
 loadRanking();
