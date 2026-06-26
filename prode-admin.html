@@ -1573,7 +1573,7 @@ async function processImageOCR() {
     setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados (desde imagen)`, "ok");
   } catch (err) {
     console.error("OCR error:", err);
-    setMsg("ocrMsg", "✕ " + err.message, "error");
+    setMsg("ocrMsg", "✕ " + (err?.message || "Error desconocido al procesar la imagen"), "error");
   } finally {
     btn.disabled = false;
     setTimeout(() => { progressEl.style.display = "none"; }, 1500);
