@@ -275,6 +275,39 @@
     }
     #manualSection { display: none; }
 
+    /* ── IMAGE UPLOAD ── */
+    #imageSection { display: none; }
+    .image-drop-zone {
+      width: 100%; min-height: 160px; padding: 20px;
+      border: 2px dashed var(--border-2); border-radius: 10px;
+      background: var(--surface-2);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; cursor: pointer; transition: all .2s; margin-bottom: 10px;
+    }
+    .image-drop-zone:hover, .image-drop-zone.dragover {
+      border-color: var(--cyan); background: rgba(0,174,239,.05);
+    }
+    .image-drop-zone-text {
+      font-family: "Inter", system-ui, sans-serif; font-size: 13px;
+      color: var(--text-3); text-align: center;
+    }
+    .image-drop-zone-text .icon { font-size: 32px; display: block; margin-bottom: 6px; }
+    .image-preview-wrap {
+      max-width: 100%; margin-bottom: 10px; border-radius: 8px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .image-preview-wrap img {
+      max-width: 100%; height: auto; display: block;
+    }
+    .ocr-progress {
+      width: 100%; height: 6px; border-radius: 3px;
+      background: var(--surface-3); overflow: hidden; margin-top: 8px;
+    }
+    .ocr-progress-bar {
+      height: 100%; background: linear-gradient(90deg, var(--cyan), var(--blue));
+      border-radius: 3px; transition: width .3s; width: 0%;
+    }
+
     /* ── SPINNER ── */
     .spinner {
       display: inline-block; width: 16px; height: 16px;
@@ -391,6 +424,32 @@
     <div class="btn-row">
       <button class="admin-btn" id="btnFetch" onclick="doFetch()">OBTENER DATOS</button>
       <button class="admin-btn" id="btnManual" onclick="toggleManual()" style="opacity:.6">PEGAR HTML</button>
+      <button class="admin-btn" id="btnImage" onclick="toggleImageSection()" style="opacity:.6">📷 CARGAR IMAGEN</button>
+    </div>
+
+    <!-- Image upload section -->
+    <div id="imageSection">
+      <div class="fallback-note" style="margin-top:12px">
+        Subí o pegá una imagen con los partidos (como la que publica GEBA en redes).<br>
+        Se extraerán los equipos y fechas automáticamente con OCR.
+      </div>
+      <div class="image-drop-zone" id="imageDropZone" onclick="document.getElementById('imageFileInput').click()">
+        <div class="image-drop-zone-text">
+          <span class="icon">📷</span>
+          Arrastrá una imagen acá o hacé click para seleccionar
+        </div>
+      </div>
+      <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleImageFile(this.files[0])">
+      <div id="imagePreview" style="display:none">
+        <div class="image-preview-wrap"><img id="imagePreviewImg" alt="Preview"></div>
+      </div>
+      <div class="ocr-progress" id="ocrProgress" style="display:none">
+        <div class="ocr-progress-bar" id="ocrProgressBar"></div>
+      </div>
+      <div class="btn-row">
+        <button class="admin-btn" id="btnOcr" onclick="processImageOCR()" disabled>🔍 PROCESAR IMAGEN</button>
+      </div>
+      <div class="admin-msg" id="ocrMsg"></div>
     </div>
 
     <!-- Manual paste fallback -->
@@ -1409,6 +1468,311 @@ document.getElementById("authPass").addEventListener("keydown", e => { if (e.key
 
 // ── Init ──
 if (USE_MOCK) loadFechas();
+
+// ═══════════════════════════════════════════
+// IMAGE OCR — Extract matches from image
+// ═══════════════════════════════════════════
+let uploadedImageData = null;
+
+function toggleImageSection() {
+  const el = document.getElementById("imageSection");
+  el.style.display = el.style.display === "none" ? "" : "none";
+}
+window.toggleImageSection = toggleImageSection;
+
+// Drag & drop
+const dropZone = document.getElementById("imageDropZone");
+dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) handleImageFile(file);
+});
+
+// Paste image from clipboard
+document.addEventListener("paste", e => {
+  if (document.getElementById("imageSection").style.display === "none") return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      handleImageFile(item.getAsFile());
+      break;
+    }
+  }
+});
+
+function handleImageFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    uploadedImageData = e.target.result;
+    document.getElementById("imagePreviewImg").src = uploadedImageData;
+    document.getElementById("imagePreview").style.display = "block";
+    document.getElementById("btnOcr").disabled = false;
+    document.getElementById("imageDropZone").style.display = "none";
+    setMsg("ocrMsg", "", "");
+  };
+  reader.readAsDataURL(file);
+}
+window.handleImageFile = handleImageFile;
+
+// Load Tesseract.js dynamically
+let tesseractLoaded = false;
+function loadTesseract() {
+  if (tesseractLoaded) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    script.onload = () => { tesseractLoaded = true; resolve(); };
+    script.onerror = () => reject(new Error("No se pudo cargar Tesseract.js"));
+    document.head.appendChild(script);
+  });
+}
+
+async function processImageOCR() {
+  if (!uploadedImageData) { setMsg("ocrMsg", "Subí una imagen primero", "error"); return; }
+  const fechaNum = document.getElementById("fechaNum").value.trim();
+  if (!fechaNum) { setMsg("ocrMsg", "Ingresá el número o nombre de fecha", "error"); return; }
+
+  const btn = document.getElementById("btnOcr");
+  btn.disabled = true;
+  const progressEl = document.getElementById("ocrProgress");
+  const progressBar = document.getElementById("ocrProgressBar");
+  progressEl.style.display = "block";
+  progressBar.style.width = "0%";
+  setMsg("ocrMsg", '<span class="spinner"></span>Cargando motor OCR...', "info");
+
+  try {
+    await loadTesseract();
+    setMsg("ocrMsg", '<span class="spinner"></span>Procesando imagen...', "info");
+
+    const worker = await Tesseract.createWorker("spa", 1, {
+      logger: m => {
+        if (m.status === "recognizing text") {
+          progressBar.style.width = Math.round(m.progress * 100) + "%";
+        }
+      }
+    });
+
+    const { data: { text } } = await worker.recognize(uploadedImageData);
+    await worker.terminate();
+
+    progressBar.style.width = "100%";
+    console.log("[OCR] Texto extraído:", text);
+
+    // Parse OCR text
+    const data = parseImageText(text, fechaNum);
+    previewData = data;
+    showPreview(data);
+    setMsg("ocrMsg", `✓ ${data.totalMatches} partidos extraídos de la imagen`, "ok");
+    setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados (desde imagen)`, "ok");
+  } catch (err) {
+    console.error("OCR error:", err);
+    setMsg("ocrMsg", "✕ " + err.message, "error");
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { progressEl.style.display = "none"; }, 1500);
+  }
+}
+window.processImageOCR = processImageOCR;
+
+// ═══════════════════════════════════════════
+// PARSE OCR TEXT — Extract matches from recognized text
+// ═══════════════════════════════════════════
+function parseImageText(text, fechaNum) {
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 3);
+  console.log("[parseImageText] Líneas:", lines);
+
+  const matches = [];
+  const dateGroups = {};
+
+  // Pattern: looks for lines with date pattern DD/MM and team names
+  // The image format is: TEAM1 [logo] DD/MM - CX HH:MM Hs [logo] TEAM2
+  // OCR may produce variations like:
+  //   "GUALEGUAY... 26/06 - C6 20:00 Hs LA ARMENIA"
+  //   or split across lines
+
+  // Strategy: find lines containing date+time pattern, then extract teams
+  const dateTimeRegex = /(\d{1,2}\/\d{1,2})\s*[-–—]\s*C(\d+)\s*(\d{1,2}[:.]\d{2})\s*[Hh]s?/;
+  const dateOnlyRegex = /(\d{1,2}\/\d{1,2})/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip header lines
+    if (/pr[oó]ximos?\s*partidos?/i.test(line)) continue;
+    if (/resultados?/i.test(line) && line.length < 20) continue;
+
+    const dtMatch = line.match(dateTimeRegex);
+    if (dtMatch) {
+      const dateStr = dtMatch[1]; // DD/MM
+      const cancha = "C" + dtMatch[2];
+      const hora = dtMatch[3].replace(".", ":");
+
+      // Extract team names: everything before the date pattern = home, everything after "Hs" = away
+      const dtIdx = line.indexOf(dtMatch[0]);
+      let homePart = line.substring(0, dtIdx).trim();
+      let awayPart = line.substring(dtIdx + dtMatch[0].length).trim();
+
+      // Clean up team names (remove logos artifacts, dots, extra spaces)
+      homePart = cleanTeamName(homePart);
+      awayPart = cleanTeamName(awayPart);
+
+      if (homePart && awayPart) {
+        const dateKey = dateStr.replace("/", "/");
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
+        dateGroups[dateKey].push({
+          home: homePart.toUpperCase(),
+          away: awayPart.toUpperCase(),
+          homeScore: null,
+          awayScore: null
+        });
+      }
+      continue;
+    }
+
+    // Alternative: try to find score patterns for results (e.g., "TEAM1 2 - 1 TEAM2" or "TEAM1 2-1 TEAM2")
+    const scoreRegex = /^(.+?)\s+(\d+)\s*[-–—]\s*(\d+)\s+(.+)$/;
+    const scoreMatch = line.match(scoreRegex);
+    if (scoreMatch) {
+      let homePart = cleanTeamName(scoreMatch[1]);
+      const homeScore = parseInt(scoreMatch[2], 10);
+      const awayScore = parseInt(scoreMatch[3], 10);
+      let awayPart = cleanTeamName(scoreMatch[4]);
+
+      if (homePart && awayPart) {
+        // Look for a date in nearby lines or use a default
+        let dateKey = findNearbyDate(lines, i) || "POR DEFINIR";
+        if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
+        dateGroups[dateKey].push({
+          home: homePart.toUpperCase(),
+          away: awayPart.toUpperCase(),
+          homeScore,
+          awayScore
+        });
+      }
+      continue;
+    }
+
+    // Alternative: line has a date but different format
+    // Try lines that have two recognizable team names separated by date info
+    const simpleDate = line.match(dateOnlyRegex);
+    if (simpleDate && line.length > 15) {
+      const dateStr = simpleDate[1];
+      const dateFull = simpleDate[0];
+      const datePos = line.indexOf(dateFull);
+
+      // Try to split the line around the date
+      let leftPart = line.substring(0, datePos).trim();
+      let rightPart = line.substring(datePos + dateFull.length).trim();
+
+      // Remove time/cancha artifacts from right part
+      rightPart = rightPart.replace(/^\s*[-–—]\s*C\d+\s*\d{1,2}[:.]\d{2}\s*[Hh]s?\s*/, "").trim();
+
+      leftPart = cleanTeamName(leftPart);
+      rightPart = cleanTeamName(rightPart);
+
+      if (leftPart && rightPart && leftPart.length >= 3 && rightPart.length >= 3) {
+        if (!dateGroups[dateStr]) dateGroups[dateStr] = [];
+        dateGroups[dateStr].push({
+          home: leftPart.toUpperCase(),
+          away: rightPart.toUpperCase(),
+          homeScore: null,
+          awayScore: null
+        });
+      }
+    }
+  }
+
+  // Convert to groups array
+  const groups = Object.entries(dateGroups).map(([date, matchList]) => ({
+    date: date.toUpperCase(),
+    matches: matchList
+  }));
+
+  const totalMatches = groups.reduce((s, g) => s + g.matches.length, 0);
+
+  if (totalMatches === 0) {
+    // Fallback: try a more aggressive line-by-line parsing
+    const fallbackData = parseImageTextFallback(text, fechaNum);
+    if (fallbackData.totalMatches > 0) return fallbackData;
+    throw new Error("No se pudieron extraer partidos de la imagen. Verificá que la imagen sea clara y contenga equipos con fechas.");
+  }
+
+  console.log(`[parseImageText] Resultado: ${totalMatches} partidos en ${groups.length} grupo(s)`);
+  return { numero: fechaNum, groups, totalMatches };
+}
+
+function cleanTeamName(name) {
+  if (!name) return "";
+  return name
+    .replace(/[^\w\sáéíóúüñÁÉÍÓÚÜÑ.…]/g, " ") // remove non-alphanumeric except accents
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s.…]+|[\s.…]+$/g, "")
+    .trim();
+}
+
+function findNearbyDate(lines, idx) {
+  const dateRegex = /(\d{1,2}\/\d{1,2})/;
+  // Look backward up to 3 lines
+  for (let i = idx - 1; i >= Math.max(0, idx - 3); i--) {
+    const m = lines[i].match(dateRegex);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+// Fallback parser: less strict, tries to find any team-like words
+function parseImageTextFallback(text, fechaNum) {
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 3);
+  const matches = [];
+  let currentDate = "POR DEFINIR";
+
+  // Look for date markers
+  const dateLineRegex = /^(\d{1,2}\/\d{1,2})/;
+
+  // Look for lines that seem to have two teams (words on each side of some separator)
+  const vsRegex = /^(.+?)\s+(?:vs\.?|VS\.?|[—–-])\s+(.+)$/i;
+
+  for (const line of lines) {
+    if (/pr[oó]ximos?\s*partidos?/i.test(line)) continue;
+
+    const dateMatch = line.match(dateLineRegex);
+    if (dateMatch) {
+      currentDate = dateMatch[1];
+    }
+
+    const vsMatch = line.match(vsRegex);
+    if (vsMatch) {
+      const home = cleanTeamName(vsMatch[1]);
+      const away = cleanTeamName(vsMatch[2]);
+      if (home.length >= 3 && away.length >= 3) {
+        matches.push({ home: home.toUpperCase(), away: away.toUpperCase(), homeScore: null, awayScore: null });
+      }
+    }
+  }
+
+  const groups = matches.length > 0
+    ? [{ date: currentDate.toUpperCase(), matches }]
+    : [];
+
+  return { numero: fechaNum, groups, totalMatches: matches.length };
+}
+
+// Reset image upload
+function resetImageUpload() {
+  uploadedImageData = null;
+  document.getElementById("imagePreview").style.display = "none";
+  document.getElementById("imageDropZone").style.display = "flex";
+  document.getElementById("btnOcr").disabled = true;
+  document.getElementById("imageFileInput").value = "";
+  setMsg("ocrMsg", "", "");
+}
+window.resetImageUpload = resetImageUpload;
 </script>
 </body>
 </html>
