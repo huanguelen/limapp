@@ -1476,7 +1476,8 @@ let uploadedImageData = null;
 
 function toggleImageSection() {
   const el = document.getElementById("imageSection");
-  el.style.display = el.style.display === "none" ? "" : "none";
+  const visible = getComputedStyle(el).display !== "none";
+  el.style.display = visible ? "none" : "block";
 }
 window.toggleImageSection = toggleImageSection;
 
