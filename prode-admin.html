@@ -1614,6 +1614,61 @@ function parseImageText(text, fechaNum) {
 
   const dateGroups = {};
 
+  // ─── Strategy 0 (OCR shield pattern): TEAM1 [garbage] Y TEAM2 ───
+  // OCR reads team shields as garbage, with " Y " as separator
+  // Extract home = leading uppercase words (3+ chars), away = text after last " Y "
+  const homeLeadingRegex = /^([A-ZÁÉÍÓÚÜÑ.…]{3,}(?:\s+[A-ZÁÉÍÓÚÜÑ]{2,})*)/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/pr[oó]ximos?\s*partidos?/i.test(line)) continue;
+    if (line.length < 8) continue;
+
+    // Find last " Y " separator (not inside a word)
+    const lastYIdx = line.lastIndexOf(" Y ");
+    if (lastYIdx > 2) {
+      const leftPart = line.substring(0, lastYIdx).trim();
+      const rightPart = line.substring(lastYIdx + 3).trim();
+
+      // Extract home team: leading uppercase words (3+ chars each)
+      const homeMatch = leftPart.replace(/[.…]+/g, "").match(homeLeadingRegex);
+      const awayClean = rightPart.replace(/[.…]+/g, "").replace(/^[^A-ZÁÉÍÓÚÜÑ]+/, "").trim();
+
+      if (homeMatch && homeMatch[1].length >= 3 && awayClean.length >= 3) {
+        // Check away is mostly uppercase letters
+        const awayUpper = awayClean.replace(/[^A-ZÁÉÍÓÚÜÑ\s]/g, "").trim();
+        if (awayUpper.length >= 3) {
+          const home = homeMatch[1].trim();
+          const away = awayUpper.trim();
+          // Look for date in line or nearby
+          const dateM = line.match(/(\d{1,2}\/\d{1,2})/);
+          const dateKey = dateM ? dateM[1] : findNearbyDate(lines, i) || "POR DEFINIR";
+          if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
+          const dup = dateGroups[dateKey].find(x => x.home === home.toUpperCase() && x.away === away.toUpperCase());
+          if (!dup) {
+            dateGroups[dateKey].push({
+              home: home.toUpperCase(),
+              away: away.toUpperCase(),
+              homeScore: null,
+              awayScore: null
+            });
+            continue; // Match found, skip other strategies for this line
+          }
+        }
+      }
+    }
+  }
+
+  // If Strategy 0 found matches, skip the rest
+  const s0Total = Object.values(dateGroups).reduce((s, g) => s + g.length, 0);
+  if (s0Total > 0) {
+    const groups = Object.entries(dateGroups).map(([date, matches]) => ({ date: date.toUpperCase(), matches }));
+    const totalMatches = groups.reduce((s, g) => s + g.matches.length, 0);
+    console.log(`[parseImageText] Strategy 0 (Y separator): ${totalMatches} partidos`);
+    groups.forEach(g => g.matches.forEach(m => console.log(`  ${m.home} vs ${m.away}`)));
+    return { numero: fechaNum, groups, totalMatches };
+  }
+
   // ─── Strategy 1: Full line with date+time pattern ───
   // Matches: "TEAM1 DD/MM - CX HH:MM Hs TEAM2" (with variations)
   const fullLineRegex = /^(.+?)\s+(\d{1,2}\/\d{1,2})\s*[-–—.]\s*C(\d+)\s*(\d{1,2}[:.]\d{2})\s*[Hh]s?\s+(.+)$/;
