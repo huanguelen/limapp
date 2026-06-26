@@ -449,6 +449,15 @@
       <div class="btn-row">
         <button class="admin-btn" id="btnOcr" onclick="processImageOCR()" disabled>🔍 PROCESAR IMAGEN</button>
       </div>
+      <div id="ocrTextSection" style="display:none;margin-top:12px">
+        <div class="fallback-note">
+          Texto extraído por OCR. Podés editarlo para corregir errores.<br>
+          Formato esperado: una línea por partido → <code style="color:var(--cyan)">EQUIPO1 DD/MM - CX HH:MM Hs EQUIPO2</code><br>
+          O simplemente: <code style="color:var(--cyan)">EQUIPO1 - EQUIPO2</code> (sin fecha)
+        </div>
+        <textarea class="admin-textarea" id="ocrTextArea" style="min-height:150px" placeholder="Texto OCR..."></textarea>
+        <button class="admin-btn" onclick="reprocessOcrText()">🔄 REPROCESAR TEXTO</button>
+      </div>
       <div class="admin-msg" id="ocrMsg"></div>
     </div>
 
@@ -1565,12 +1574,20 @@ async function processImageOCR() {
     progressBar.style.width = "100%";
     console.log("[OCR] Texto extraído:", text);
 
-    // Parse OCR text
-    const data = parseImageText(text, fechaNum);
-    previewData = data;
-    showPreview(data);
-    setMsg("ocrMsg", `✓ ${data.totalMatches} partidos extraídos de la imagen`, "ok");
-    setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados (desde imagen)`, "ok");
+    // Show OCR text in editable textarea for user to verify/fix
+    document.getElementById("ocrTextArea").value = text;
+    document.getElementById("ocrTextSection").style.display = "block";
+
+    // Try to parse
+    try {
+      const data = parseImageText(text, fechaNum);
+      previewData = data;
+      showPreview(data);
+      setMsg("ocrMsg", `✓ ${data.totalMatches} partidos extraídos de la imagen`, "ok");
+      setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados (desde imagen)`, "ok");
+    } catch (parseErr) {
+      setMsg("ocrMsg", `⚠️ No se pudo parsear automáticamente. Editá el texto abajo y presioná "REPROCESAR TEXTO".`, "info");
+    }
   } catch (err) {
     console.error("OCR error:", err);
     setMsg("ocrMsg", "✕ " + (err?.message || "Error desconocido al procesar la imagen"), "error");
@@ -1585,106 +1602,128 @@ window.processImageOCR = processImageOCR;
 // PARSE OCR TEXT — Extract matches from recognized text
 // ═══════════════════════════════════════════
 function parseImageText(text, fechaNum) {
-  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 3);
-  console.log("[parseImageText] Líneas:", lines);
+  // Normalize text: fix common OCR artifacts
+  let normalized = text
+    .replace(/\r\n/g, "\n")
+    .replace(/[|¡¿]/g, "")
+    .replace(/\u00A0/g, " ") // non-breaking spaces
+    .replace(/\s{3,}/g, "  "); // collapse large spaces
 
-  const matches = [];
+  const lines = normalized.split("\n").map(l => l.trim()).filter(l => l.length > 2);
+  console.log("[parseImageText] Líneas normalizadas:", lines);
+
   const dateGroups = {};
 
-  // Pattern: looks for lines with date pattern DD/MM and team names
-  // The image format is: TEAM1 [logo] DD/MM - CX HH:MM Hs [logo] TEAM2
-  // OCR may produce variations like:
-  //   "GUALEGUAY... 26/06 - C6 20:00 Hs LA ARMENIA"
-  //   or split across lines
+  // ─── Strategy 1: Full line with date+time pattern ───
+  // Matches: "TEAM1 DD/MM - CX HH:MM Hs TEAM2" (with variations)
+  const fullLineRegex = /^(.+?)\s+(\d{1,2}\/\d{1,2})\s*[-–—.]\s*C(\d+)\s*(\d{1,2}[:.]\d{2})\s*[Hh]s?\s+(.+)$/;
 
-  // Strategy: find lines containing date+time pattern, then extract teams
-  const dateTimeRegex = /(\d{1,2}\/\d{1,2})\s*[-–—]\s*C(\d+)\s*(\d{1,2}[:.]\d{2})\s*[Hh]s?/;
-  const dateOnlyRegex = /(\d{1,2}\/\d{1,2})/;
+  // ─── Strategy 2: Date+time in center, teams on sides ───
+  // More lenient: just needs DD/MM somewhere with text on both sides
+  const dateInMiddleRegex = /^(.+?)\s+(\d{1,2}\/\d{1,2})[\s\S]*?(\d{1,2}[:.]\d{2})\s*[Hh]s?\s+(.+)$/;
+
+  // ─── Strategy 3: Just DD/MM with text around it ───
+  const simpleDateRegex = /^(.{3,}?)\s+(\d{1,2}\/\d{1,2}).+?([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑa-záéíóúüñ\s.]{2,})$/;
+
+  // ─── Strategy 4: TEAM1 vs/- TEAM2 (no date) ───
+  const vsRegex = /^(.{3,}?)\s+(?:vs\.?|VS\.?|[-–—])\s+(.{3,})$/;
+
+  // ─── Strategy 5: Two capitalized groups separated by whitespace/numbers ───
+  const twoTeamsRegex = /^([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s.…]{2,}?)\s{2,}.*?\s{2,}([A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s.…]{2,})$/;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Skip header lines
+    // Skip headers/noise
     if (/pr[oó]ximos?\s*partidos?/i.test(line)) continue;
-    if (/resultados?/i.test(line) && line.length < 20) continue;
+    if (/resultados?/i.test(line) && line.length < 25) continue;
+    if (/^\d{1,2}\/\d{1,2}$/.test(line)) continue; // Solo date
 
-    const dtMatch = line.match(dateTimeRegex);
-    if (dtMatch) {
-      const dateStr = dtMatch[1]; // DD/MM
-      const cancha = "C" + dtMatch[2];
-      const hora = dtMatch[3].replace(".", ":");
+    let home = null, away = null, dateKey = null;
 
-      // Extract team names: everything before the date pattern = home, everything after "Hs" = away
-      const dtIdx = line.indexOf(dtMatch[0]);
-      let homePart = line.substring(0, dtIdx).trim();
-      let awayPart = line.substring(dtIdx + dtMatch[0].length).trim();
-
-      // Clean up team names (remove logos artifacts, dots, extra spaces)
-      homePart = cleanTeamName(homePart);
-      awayPart = cleanTeamName(awayPart);
-
-      if (homePart && awayPart) {
-        const dateKey = dateStr.replace("/", "/");
-        if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
-        dateGroups[dateKey].push({
-          home: homePart.toUpperCase(),
-          away: awayPart.toUpperCase(),
-          homeScore: null,
-          awayScore: null
-        });
-      }
-      continue;
+    // Try Strategy 1
+    let m = line.match(fullLineRegex);
+    if (m) {
+      home = m[1]; dateKey = m[2]; away = m[5];
     }
 
-    // Alternative: try to find score patterns for results (e.g., "TEAM1 2 - 1 TEAM2" or "TEAM1 2-1 TEAM2")
-    const scoreRegex = /^(.+?)\s+(\d+)\s*[-–—]\s*(\d+)\s+(.+)$/;
-    const scoreMatch = line.match(scoreRegex);
-    if (scoreMatch) {
-      let homePart = cleanTeamName(scoreMatch[1]);
-      const homeScore = parseInt(scoreMatch[2], 10);
-      const awayScore = parseInt(scoreMatch[3], 10);
-      let awayPart = cleanTeamName(scoreMatch[4]);
-
-      if (homePart && awayPart) {
-        // Look for a date in nearby lines or use a default
-        let dateKey = findNearbyDate(lines, i) || "POR DEFINIR";
-        if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
-        dateGroups[dateKey].push({
-          home: homePart.toUpperCase(),
-          away: awayPart.toUpperCase(),
-          homeScore,
-          awayScore
-        });
+    // Try Strategy 2
+    if (!home) {
+      m = line.match(dateInMiddleRegex);
+      if (m) {
+        home = m[1]; dateKey = m[2]; away = m[4];
       }
-      continue;
     }
 
-    // Alternative: line has a date but different format
-    // Try lines that have two recognizable team names separated by date info
-    const simpleDate = line.match(dateOnlyRegex);
-    if (simpleDate && line.length > 15) {
-      const dateStr = simpleDate[1];
-      const dateFull = simpleDate[0];
-      const datePos = line.indexOf(dateFull);
+    // Try Strategy 3
+    if (!home) {
+      m = line.match(simpleDateRegex);
+      if (m) {
+        home = m[1]; dateKey = m[2]; away = m[3];
+      }
+    }
 
-      // Try to split the line around the date
-      let leftPart = line.substring(0, datePos).trim();
-      let rightPart = line.substring(datePos + dateFull.length).trim();
+    // Try Strategy 5 (two uppercase blocks with space between)
+    if (!home) {
+      m = line.match(twoTeamsRegex);
+      if (m) {
+        home = m[1]; away = m[2];
+        // Look for date in the middle part or nearby
+        const dateM = line.match(/(\d{1,2}\/\d{1,2})/);
+        dateKey = dateM ? dateM[1] : findNearbyDate(lines, i);
+      }
+    }
 
-      // Remove time/cancha artifacts from right part
-      rightPart = rightPart.replace(/^\s*[-–—]\s*C\d+\s*\d{1,2}[:.]\d{2}\s*[Hh]s?\s*/, "").trim();
+    // Try Strategy 4 (vs separator)
+    if (!home) {
+      m = line.match(vsRegex);
+      if (m) {
+        home = m[1]; away = m[2];
+        dateKey = findNearbyDate(lines, i);
+      }
+    }
 
-      leftPart = cleanTeamName(leftPart);
-      rightPart = cleanTeamName(rightPart);
+    if (home && away) {
+      home = cleanTeamName(home);
+      away = cleanTeamName(away);
 
-      if (leftPart && rightPart && leftPart.length >= 3 && rightPart.length >= 3) {
-        if (!dateGroups[dateStr]) dateGroups[dateStr] = [];
-        dateGroups[dateStr].push({
-          home: leftPart.toUpperCase(),
-          away: rightPart.toUpperCase(),
-          homeScore: null,
-          awayScore: null
-        });
+      if (home.length >= 3 && away.length >= 3) {
+        const dk = dateKey || "POR DEFINIR";
+        if (!dateGroups[dk]) dateGroups[dk] = [];
+        // Avoid duplicates
+        const dup = dateGroups[dk].find(x => x.home === home.toUpperCase() && x.away === away.toUpperCase());
+        if (!dup) {
+          dateGroups[dk].push({
+            home: home.toUpperCase(),
+            away: away.toUpperCase(),
+            homeScore: null,
+            awayScore: null
+          });
+        }
+      }
+    }
+  }
+
+  // Also try: join all lines and look for repeated patterns
+  if (Object.keys(dateGroups).length === 0) {
+    // Try joining pairs of consecutive lines
+    for (let i = 0; i < lines.length - 1; i++) {
+      const joined = lines[i] + " " + lines[i + 1];
+      const m = joined.match(fullLineRegex) || joined.match(dateInMiddleRegex);
+      if (m) {
+        const home = cleanTeamName(m[1]);
+        const dateKey = m[2];
+        const away = cleanTeamName(m[m.length - 1]);
+        if (home.length >= 3 && away.length >= 3) {
+          if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
+          dateGroups[dateKey].push({
+            home: home.toUpperCase(),
+            away: away.toUpperCase(),
+            homeScore: null,
+            awayScore: null
+          });
+          i++; // skip next line since we consumed it
+        }
       }
     }
   }
@@ -1698,13 +1737,11 @@ function parseImageText(text, fechaNum) {
   const totalMatches = groups.reduce((s, g) => s + g.matches.length, 0);
 
   if (totalMatches === 0) {
-    // Fallback: try a more aggressive line-by-line parsing
-    const fallbackData = parseImageTextFallback(text, fechaNum);
-    if (fallbackData.totalMatches > 0) return fallbackData;
     throw new Error("No se pudieron extraer partidos de la imagen. Verificá que la imagen sea clara y contenga equipos con fechas.");
   }
 
   console.log(`[parseImageText] Resultado: ${totalMatches} partidos en ${groups.length} grupo(s)`);
+  groups.forEach(g => g.matches.forEach(m => console.log(`  ${m.home} vs ${m.away}`)));
   return { numero: fechaNum, groups, totalMatches };
 }
 
@@ -1724,45 +1761,32 @@ function findNearbyDate(lines, idx) {
     const m = lines[i].match(dateRegex);
     if (m) return m[1];
   }
+  // Look forward up to 2 lines
+  for (let i = idx + 1; i <= Math.min(lines.length - 1, idx + 2); i++) {
+    const m = lines[i].match(dateRegex);
+    if (m) return m[1];
+  }
   return null;
 }
 
-// Fallback parser: less strict, tries to find any team-like words
-function parseImageTextFallback(text, fechaNum) {
-  const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 3);
-  const matches = [];
-  let currentDate = "POR DEFINIR";
+// Reprocess edited OCR text
+function reprocessOcrText() {
+  const text = document.getElementById("ocrTextArea").value;
+  const fechaNum = document.getElementById("fechaNum").value.trim();
+  if (!text.trim()) { setMsg("ocrMsg", "No hay texto para procesar", "error"); return; }
+  if (!fechaNum) { setMsg("ocrMsg", "Ingresá el número o nombre de fecha", "error"); return; }
 
-  // Look for date markers
-  const dateLineRegex = /^(\d{1,2}\/\d{1,2})/;
-
-  // Look for lines that seem to have two teams (words on each side of some separator)
-  const vsRegex = /^(.+?)\s+(?:vs\.?|VS\.?|[—–-])\s+(.+)$/i;
-
-  for (const line of lines) {
-    if (/pr[oó]ximos?\s*partidos?/i.test(line)) continue;
-
-    const dateMatch = line.match(dateLineRegex);
-    if (dateMatch) {
-      currentDate = dateMatch[1];
-    }
-
-    const vsMatch = line.match(vsRegex);
-    if (vsMatch) {
-      const home = cleanTeamName(vsMatch[1]);
-      const away = cleanTeamName(vsMatch[2]);
-      if (home.length >= 3 && away.length >= 3) {
-        matches.push({ home: home.toUpperCase(), away: away.toUpperCase(), homeScore: null, awayScore: null });
-      }
-    }
+  try {
+    const data = parseImageText(text, fechaNum);
+    previewData = data;
+    showPreview(data);
+    setMsg("ocrMsg", `✓ ${data.totalMatches} partidos extraídos`, "ok");
+    setMsg("fetchMsg", `✓ ${data.totalMatches} partidos encontrados (desde imagen)`, "ok");
+  } catch (err) {
+    setMsg("ocrMsg", "✕ " + (err?.message || "No se pudieron extraer partidos"), "error");
   }
-
-  const groups = matches.length > 0
-    ? [{ date: currentDate.toUpperCase(), matches }]
-    : [];
-
-  return { numero: fechaNum, groups, totalMatches: matches.length };
 }
+window.reprocessOcrText = reprocessOcrText;
 
 // Reset image upload
 function resetImageUpload() {
