@@ -326,6 +326,24 @@
     }
     .fecha-update:active { transform: scale(.95); }
     .fecha-update:disabled { opacity: .4; cursor: not-allowed; }
+    .fecha-manual-results {
+      background: none; border: 1px solid rgba(250,204,21,.3);
+      color: var(--draw); font-family: "Bebas Neue", sans-serif;
+      font-size: 11px; letter-spacing: 2px; padding: 6px 10px;
+      border-radius: 6px; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .fecha-manual-results:active { transform: scale(.95); }
+    .prode-score-editable {
+      width: 42px; height: 42px; text-align: center;
+      font-family: "Bebas Neue", sans-serif; font-size: 20px;
+      letter-spacing: 1px; color: var(--cyan);
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      border-radius: 8px; outline: none; flex-shrink: 0;
+      -moz-appearance: textfield; transition: border-color .2s;
+    }
+    .prode-score-editable::-webkit-inner-spin-button,
+    .prode-score-editable::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .prode-score-editable:focus { border-color: var(--cyan); box-shadow: 0 0 8px rgba(0,174,239,.25); }
     .fecha-view {
       background: none; border: 1px solid rgba(0,174,239,.2);
       color: var(--text-3); font-size: 18px; padding: 4px 8px;
@@ -1043,6 +1061,7 @@ function renderFechas(data, predCounts, totalUsers) {
         </div>
         <button class="fecha-view ${playedMatches > 0 ? 'has-results' : ''}" onclick="viewResults('${key}')" title="Ver resultados">👁️</button>
         <button class="fecha-update" onclick="doUpdateResults('${key}')" title="Actualizar resultados">🔄</button>
+        <button class="fecha-manual-results" onclick="doManualResults('${key}')" title="Cargar resultados manual">✏️</button>
         <div class="toggle-wrap">
           <span class="toggle-label ${isActive ? 'on' : 'off'}" id="lbl_${key}">${isActive ? 'ACTIVA' : 'INACTIVA'}</span>
           <label class="toggle">
@@ -1115,12 +1134,105 @@ async function doUpdateResults(key) {
     setMsg("fetchMsg", `✓ ${freshData.totalMatches} partidos con resultados`, "ok");
   } catch (err) {
     console.error("doUpdateResults error:", err);
-    setMsg("fetchMsg", "✕ " + err.message, "error");
+    setMsg("fetchMsg", `✕ ${err.message} <button class="fecha-manual-results" onclick="doManualResults('${key}')" style="margin-left:10px">✏️ CARGAR MANUAL</button>`, "error");
   } finally {
     document.querySelectorAll(".fecha-update").forEach(b => { b.disabled = false; b.textContent = "🔄"; });
   }
 }
 window.doUpdateResults = doUpdateResults;
+
+// ═══════════════════════════════════════════
+// CARGAR RESULTADOS MANUAL
+// ═══════════════════════════════════════════
+async function doManualResults(key) {
+  const snap = await _dbGet(_dbRef(db, "lima/prode/fechas/" + key));
+  const stored = snap.val();
+  if (!stored || !stored.groups) { alert("Fecha sin datos"); return; }
+
+  pendingResults = { key, stored, freshData: null };
+  showManualResultsForm(stored, key);
+}
+window.doManualResults = doManualResults;
+
+function showManualResultsForm(fecha, key) {
+  const section = document.getElementById("resultsSection");
+  section.style.display = "block";
+  document.getElementById("resultsNum").textContent = fecha.numero;
+
+  let totalMatches = 0;
+  let html = `<div class="fallback-note" style="margin-bottom:14px">Ingresá los resultados de cada partido manualmente. Dejá vacío los que aún no se jugaron.</div>`;
+
+  for (let gi = 0; gi < fecha.groups.length; gi++) {
+    const group = fecha.groups[gi];
+    html += `<div class="prode-date-group">`;
+    html += `<div class="prode-date-label">📅 FECHA ${fecha.numero} — ${esc(group.date)}</div>`;
+    html += `<div class="prode-grid">`;
+    for (let mi = 0; mi < group.matches.length; mi++) {
+      const m = group.matches[mi];
+      totalMatches++;
+      const hVal = m.homeScore != null ? m.homeScore : '';
+      const aVal = m.awayScore != null ? m.awayScore : '';
+      html += `<div class="prode-match">`;
+      html += `<div class="prode-team home"><span class="prode-team-name">${esc(m.home)}</span></div>`;
+      html += `<input class="prode-score-editable" type="number" min="0" max="99" inputmode="numeric" placeholder="-" data-gi="${gi}" data-mi="${mi}" data-side="home" value="${hVal}">`;
+      html += `<span class="prode-vs">-</span>`;
+      html += `<input class="prode-score-editable" type="number" min="0" max="99" inputmode="numeric" placeholder="-" data-gi="${gi}" data-mi="${mi}" data-side="away" value="${aVal}">`;
+      html += `<div class="prode-team away"><span class="prode-team-name">${esc(m.away)}</span></div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+  document.getElementById("resultsContent").innerHTML = html;
+  document.getElementById("resultsSummary").innerHTML = `Ingresá los resultados para <strong>${totalMatches}</strong> partidos`;
+
+  // Override save button to use manual save
+  document.getElementById("resultsBtnRow").innerHTML = `
+    <button class="admin-btn success" onclick="saveManualResults()">💾 GUARDAR RESULTADOS</button>
+    <button class="admin-btn danger" onclick="cancelResults()">✕ CANCELAR</button>
+  `;
+
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function saveManualResults() {
+  if (!pendingResults) return;
+  const { key, stored } = pendingResults;
+
+  // Read values from inputs
+  const inputs = document.querySelectorAll("#resultsContent .prode-score-editable");
+  for (const input of inputs) {
+    const gi = parseInt(input.dataset.gi);
+    const mi = parseInt(input.dataset.mi);
+    const side = input.dataset.side;
+    const val = input.value.trim();
+    if (val !== '' && !isNaN(parseInt(val))) {
+      stored.groups[gi].matches[mi][side === 'home' ? 'homeScore' : 'awayScore'] = parseInt(val);
+    } else {
+      stored.groups[gi].matches[mi][side === 'home' ? 'homeScore' : 'awayScore'] = null;
+    }
+  }
+
+  stored.resultsUpdated = new Date().toISOString();
+  stored.resultsManual = true;
+
+  try {
+    await _dbSet(_dbRef(db, "lima/prode/fechas/" + key), stored);
+    setMsg("resultsMsg", "✓ Resultados manuales guardados correctamente", "ok");
+    pendingResults = null;
+    setTimeout(() => {
+      document.getElementById("resultsSection").style.display = "none";
+      // Restore default buttons
+      document.getElementById("resultsBtnRow").innerHTML = `
+        <button class="admin-btn success" onclick="saveResults()">💾 GUARDAR RESULTADOS</button>
+        <button class="admin-btn danger" onclick="cancelResults()">✕ CANCELAR</button>
+      `;
+      loadFechas();
+    }, 800);
+  } catch (err) {
+    setMsg("resultsMsg", "Error al guardar: " + err.message, "error");
+  }
+}
+window.saveManualResults = saveManualResults;
 
 function showResultsPreview(freshData, stored) {
   const section = document.getElementById("resultsSection");
